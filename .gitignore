@@ -1,1 +1,4 @@
 .DS_Store
+*.out
+*/temp
+imp_taco/y.tns
