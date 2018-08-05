@@ -91,6 +91,7 @@ def pagerank_v3(page_map, eps=1.0e-8, d=0.85):
         print("v_rank=")
         print(v_rank)
         loop_num = loop_num + 1
+
     return v_rank
 
 
@@ -104,6 +105,7 @@ def main():
                          [0, 0, 0.5, 1, 0]])
 
     v_rank = pagerank_v3(page_map, 0.001, 0.85)
+
     print(v_rank)
 
 
