@@ -104,7 +104,7 @@ def main():
                          [0, 1, 0.5, 0, 0],
                          [0, 0, 0.5, 1, 0]])
 
-    v_rank = pagerank_v3(page_map, 0.001, 0.85)
+    v_rank = pagerank_v3(page_map, 1.0e-8, 0.85)
 
     print(v_rank)
 

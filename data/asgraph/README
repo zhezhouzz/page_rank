@@ -1,0 +1,19 @@
+This tar file contains 9 instances of peer.oregon.[collection_date]
+and peer.oregon+.[collection_date].
+
+peer.oregon.[collection_date]:
+AS peering information inferred from Oregon route-views.
+
+peer.oregon+.[collection_date]:
+AS peering information inferred from (1) Oregon route-views, (2) Looking glass
+data, and (3) Routing registry, all combined.
+
+Each peer file contains a set of lines formatted as "X:Y", which means
+that AS X and AS Y has direct peering relationship between them.
+The total number of lines in the file corresponds to the total number of 
+undirected edges in the resulting AS graph.
+
+These data sets are available from http://topology.eecs.umich.edu/data.html.
+
+For any further question, please contact hschang@eecs.umich.edu.
+

@@ -6,6 +6,9 @@
 #include <iostream>
 #include <random>
 #include "debug/utils_debug.h"
+#include <limits>
+#include <sstream>
+#include <fstream>
 
 using namespace taco;
 
@@ -15,6 +18,12 @@ using namespace taco;
             std::cout << "[line " << __LINE__ << "] error: " << ret_code << std::endl; \
         }                                                                              \
     } while (0)
+
+constexpr double PAGE_RANK_EPS=1.0e-8;
+constexpr double PAGE_RANK_D=0.85f;
+constexpr double PAGE_RANK_MAX=1.0f;
+// const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/pwtk/pwtk/pwtk.mtx";
+const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/page_map.mtx";
 
 int assemble(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
              taco_tensor_t* z) {
@@ -113,6 +122,30 @@ int loop_compute(taco_tensor_t* x, taco_tensor_t* y) {
     return 0;
 }
 
+double vetor_norm_compute(taco_tensor_t* x, taco_tensor_t* y) {
+    int y1_dimension = (int)(y->dimensions[y->mode_ordering[0]]);
+    int x1_dimension = (int)(x->dimensions[x->mode_ordering[0]]);
+    assert(y1_dimension == x1_dimension);
+    double* __restrict x_vals = (double*)(x->vals);
+    double* __restrict y_vals = (double*)(y->vals);
+    double norm = 0;
+#pragma omp parallel for
+    for (int32_t iy = 0; iy < y1_dimension; iy++) {
+        double diff = x_vals[iy] - y_vals[iy];
+        norm += diff * diff;
+    }
+    return norm;
+}
+
+void print_vector_tensor(taco_tensor_t* x) {
+    FP_LOG(FP_LEVEL_INFO, "vector: [");
+    for(int i = 0; i < (int)(x->dimensions[x->mode_ordering[0]]); i++) {
+        FP_LOG(FP_LEVEL_INFO, "%.10e ", ((double*)(x->vals))[i]);
+    }
+    FP_LOG(FP_LEVEL_INFO, "]\n");
+    return;
+}
+
 int main(int argc, char* argv[]) {
     std::default_random_engine gen(0);
     std::uniform_real_distribution<double> unif(0.0, 1.0);
@@ -120,21 +153,21 @@ int main(int argc, char* argv[]) {
     Format csr({Sparse, Sparse});
     Format dv({Dense});
 
-    Tensor<double> A = read("../data/page_map.mtx", csr);
+    Tensor<double> A = read(MTX_DATA_PATH, csr);
     FP_LOG(FP_LEVEL_INFO, "[LOAD FINISHED]\n");
 
     Tensor<double> x({A.getDimension(1)}, dv);
     int length = x.getDimension(0);
     for (int i = 0; i < length; ++i) {
-        x.insert({i}, (double)(1.0f / length));
+        x.insert({i}, (double)(PAGE_RANK_MAX / length));
     }
     x.pack();
 
-    Tensor<double> alpha(0.85);
+    Tensor<double> alpha(PAGE_RANK_D);
 
     Tensor<double> z({A.getDimension(0)}, dv);
     for (int i = 0; i < z.getDimension(0); ++i) {
-        z.insert({i}, (double)(0.15f / length));
+        z.insert({i}, (double)((PAGE_RANK_MAX - PAGE_RANK_D) / length));
     }
     z.pack();
 
@@ -151,20 +184,35 @@ int main(int argc, char* argv[]) {
     ERROR_HANDLE_;
     {
         FPDebugTimer timer_page_rank(FP_LEVEL_WARNING, __FILE__, __LINE__);
-        for (int t = 0; t < 23; t++) {
+        double norm = std::numeric_limits<double>::max();
+#ifndef FPOPT
+        int times = 0;
+#endif
+        do {
             FP_LOG(FP_LEVEL_INFO, "[compute]\n");
             {
                 FPDebugTimer timer_compute(FP_LEVEL_INFO, __FILE__, __LINE__);
                 ret_code = compute(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z);
                 ERROR_HANDLE_;
             }
+            FP_LOG(FP_LEVEL_INFO, "[norm]\n");
+            {
+                FPDebugTimer timer_norm(FP_LEVEL_INFO, __FILE__, __LINE__);
+                norm = vetor_norm_compute(c_tensor_x, c_tensor_y);
+            }
+            FP_LOG(FP_LEVEL_INFO, "norm = %.10e\n", norm);
             FP_LOG(FP_LEVEL_INFO, "[loop]\n");
             {
                 FPDebugTimer timer_loop(FP_LEVEL_INFO, __FILE__, __LINE__);
                 ret_code = loop_compute(c_tensor_x, c_tensor_y);
                 ERROR_HANDLE_;
             }
-        }
+#ifndef FPOPT
+            times++;
+            FP_LOG(FP_LEVEL_INFO, "<loop %d>\n", times);
+            print_vector_tensor(c_tensor_x);
+#endif
+        } while(norm > PAGE_RANK_EPS);
     }
     write("x.tns", x);
 }

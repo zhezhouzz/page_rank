@@ -36,6 +36,7 @@ void _FP_LOG(int level, const char* format, ...);
         _FP_LOG((lv), __VA_ARGS__);                    \
     } while (0)
 #else
+#define FPOPT
 #define FP_LOG(lv, ...)
 #define FP_LOG_D(lv, ...)
 #endif
