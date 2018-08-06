@@ -19,11 +19,11 @@ using namespace taco;
         }                                                                              \
     } while (0)
 
-constexpr double PAGE_RANK_EPS=1.0e-8;
+constexpr double PAGE_RANK_EPS=1.0e-15;
 constexpr double PAGE_RANK_D=0.85f;
 constexpr double PAGE_RANK_MAX=1.0f;
-// const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/pwtk/pwtk/pwtk.mtx";
-const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/page_map.mtx";
+// const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/page_map.mtx";
+const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/10000x10000-100000.mtx";
 
 int assemble(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
              taco_tensor_t* z) {
@@ -94,8 +94,10 @@ int compute(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tenso
             for (int32_t pA2 = A2_pos[pA1]; pA2 < A2_pos[(pA1 + 1)]; pA2++) {
                 int32_t jA = A2_coord[pA2];
                 tj += A_vals[pA2] * x_vals[jA];
+                FP_LOG(FP_LEVEL_INFO, "  %fx%f=%f\n", A_vals[pA2], x_vals[jA], A_vals[pA2] * x_vals[jA]);
             }
             y_vals[py1] = alpha_vals[0] * tj + z_vals[pz1];
+            FP_LOG(FP_LEVEL_INFO, "%fx%f + %f=%f\n", alpha_vals[0] ,tj, z_vals[pz1], y_vals[py1]);
         } else {
             y_vals[py1] = z_vals[pz1];
         }
@@ -182,12 +184,12 @@ int main(int argc, char* argv[]) {
     FP_LOG(FP_LEVEL_INFO, "[assemble]\n");
     ret_code = assemble(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z);
     ERROR_HANDLE_;
-    {
-        FPDebugTimer timer_page_rank(FP_LEVEL_WARNING, __FILE__, __LINE__);
-        double norm = std::numeric_limits<double>::max();
 #ifndef FPOPT
         int times = 0;
 #endif
+    {
+        FPDebugTimer timer_page_rank(FP_LEVEL_WARNING, __FILE__, __LINE__);
+        double norm = std::numeric_limits<double>::max();
         do {
             FP_LOG(FP_LEVEL_INFO, "[compute]\n");
             {
@@ -214,5 +216,8 @@ int main(int argc, char* argv[]) {
 #endif
         } while(norm > PAGE_RANK_EPS);
     }
+#ifndef FPOPT
+    FP_LOG(FP_LEVEL_WARNING, "loop: %d times\n", times);
+#endif
     write("x.tns", x);
 }

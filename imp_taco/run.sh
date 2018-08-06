@@ -16,4 +16,4 @@ fi
 
 echo $CPPFLAGS
 
-clang++ $CPPFLAGS page_rank.cpp debug/utils_debug.cpp && ./a.out && cat x.tns
+clang++ $CPPFLAGS page_rank.cpp debug/utils_debug.cpp && ./a.out

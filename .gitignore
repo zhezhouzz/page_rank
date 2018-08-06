@@ -1,5 +1,6 @@
 .DS_Store
 *.out
 */temp
+*.mtx
 imp_taco/x.tns
 imp_taco/y.tns
