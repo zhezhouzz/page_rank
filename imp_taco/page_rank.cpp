@@ -3,12 +3,12 @@
 //   LD_LIBRARY_PATH=../../build/lib ./spmv
 
 #include <taco.h>
-#include <iostream>
-#include <random>
-#include "debug/utils_debug.h"
-#include <limits>
-#include <sstream>
 #include <fstream>
+#include <iostream>
+#include <limits>
+#include <random>
+#include <sstream>
+#include "debug/utils_debug.h"
 
 using namespace taco;
 
@@ -19,11 +19,11 @@ using namespace taco;
         }                                                                              \
     } while (0)
 
-constexpr double PAGE_RANK_EPS=1.0e-15;
-constexpr double PAGE_RANK_D=0.85f;
-constexpr double PAGE_RANK_MAX=1.0f;
+constexpr double PAGE_RANK_EPS = 1.0e-15;
+constexpr double PAGE_RANK_D = 0.85f;
+constexpr double PAGE_RANK_MAX = 1.0f;
 // const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/page_map.mtx";
-const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/10000x10000-100000.mtx";
+const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/5x5-7.mtx";
 
 int assemble(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
              taco_tensor_t* z) {
@@ -94,10 +94,11 @@ int compute(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tenso
             for (int32_t pA2 = A2_pos[pA1]; pA2 < A2_pos[(pA1 + 1)]; pA2++) {
                 int32_t jA = A2_coord[pA2];
                 tj += A_vals[pA2] * x_vals[jA];
-                FP_LOG(FP_LEVEL_INFO, "  %fx%f=%f\n", A_vals[pA2], x_vals[jA], A_vals[pA2] * x_vals[jA]);
+                FP_LOG(FP_LEVEL_INFO, "  %fx%f=%f\n", A_vals[pA2], x_vals[jA],
+                       A_vals[pA2] * x_vals[jA]);
             }
             y_vals[py1] = alpha_vals[0] * tj + z_vals[pz1];
-            FP_LOG(FP_LEVEL_INFO, "%fx%f + %f=%f\n", alpha_vals[0] ,tj, z_vals[pz1], y_vals[py1]);
+            FP_LOG(FP_LEVEL_INFO, "%fx%f + %f=%f\n", alpha_vals[0], tj, z_vals[pz1], y_vals[py1]);
         } else {
             y_vals[py1] = z_vals[pz1];
         }
@@ -141,7 +142,7 @@ double vetor_norm_compute(taco_tensor_t* x, taco_tensor_t* y) {
 
 void print_vector_tensor(taco_tensor_t* x) {
     FP_LOG(FP_LEVEL_INFO, "vector: [");
-    for(int i = 0; i < (int)(x->dimensions[x->mode_ordering[0]]); i++) {
+    for (int i = 0; i < (int)(x->dimensions[x->mode_ordering[0]]); i++) {
         FP_LOG(FP_LEVEL_INFO, "%.10e ", ((double*)(x->vals))[i]);
     }
     FP_LOG(FP_LEVEL_INFO, "]\n");
@@ -184,8 +185,9 @@ int main(int argc, char* argv[]) {
     FP_LOG(FP_LEVEL_INFO, "[assemble]\n");
     ret_code = assemble(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z);
     ERROR_HANDLE_;
+    bool flag_x2y = true;
 #ifndef FPOPT
-        int times = 0;
+    int times = 0;
 #endif
     {
         FPDebugTimer timer_page_rank(FP_LEVEL_WARNING, __FILE__, __LINE__);
@@ -194,30 +196,43 @@ int main(int argc, char* argv[]) {
             FP_LOG(FP_LEVEL_INFO, "[compute]\n");
             {
                 FPDebugTimer timer_compute(FP_LEVEL_INFO, __FILE__, __LINE__);
-                ret_code = compute(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z);
+                if (flag_x2y) {
+                    ret_code =
+                        compute(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z);
+                } else {
+                    ret_code =
+                        compute(c_tensor_x, c_tensor_alpha, c_tensor_A, c_tensor_y, c_tensor_z);
+                }
                 ERROR_HANDLE_;
             }
             FP_LOG(FP_LEVEL_INFO, "[norm]\n");
             {
                 FPDebugTimer timer_norm(FP_LEVEL_INFO, __FILE__, __LINE__);
-                norm = vetor_norm_compute(c_tensor_x, c_tensor_y);
+                if (flag_x2y) {
+                    norm = vetor_norm_compute(c_tensor_x, c_tensor_y);
+                } else {
+                    norm = vetor_norm_compute(c_tensor_y, c_tensor_x);
+                }
             }
             FP_LOG(FP_LEVEL_INFO, "norm = %.10e\n", norm);
-            FP_LOG(FP_LEVEL_INFO, "[loop]\n");
-            {
-                FPDebugTimer timer_loop(FP_LEVEL_INFO, __FILE__, __LINE__);
-                ret_code = loop_compute(c_tensor_x, c_tensor_y);
-                ERROR_HANDLE_;
-            }
+            flag_x2y = not flag_x2y;
 #ifndef FPOPT
             times++;
             FP_LOG(FP_LEVEL_INFO, "<loop %d>\n", times);
-            print_vector_tensor(c_tensor_x);
+            if (flag_x2y) {
+                print_vector_tensor(c_tensor_y);
+            } else {
+                print_vector_tensor(c_tensor_x);
+            }
 #endif
-        } while(norm > PAGE_RANK_EPS);
+        } while (norm > PAGE_RANK_EPS);
     }
 #ifndef FPOPT
     FP_LOG(FP_LEVEL_WARNING, "loop: %d times\n", times);
 #endif
-    write("x.tns", x);
+    if (flag_x2y) {
+        write("result.tns", x);
+    } else {
+        write("result.tns", y);
+    }
 }
