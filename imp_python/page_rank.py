@@ -67,7 +67,7 @@ def pagerank_v2(page_map, eps=1.0e-8, d=0.85):
 
 def rank_once(page_map, v_rank, d, vertex_num):
     """calculate page rank only once"""
-    print((1-d)/vertex_num)
+    print(np.matmul(page_map, v_rank))
     return d*np.matmul(page_map, v_rank) + (1-d)/vertex_num
 
 
@@ -104,7 +104,7 @@ def main():
                          [0, 1, 0.5, 0, 0],
                          [0, 0, 0.5, 1, 0]])
 
-    v_rank = pagerank_v3(page_map, 1.0e-8, 0.85)
+    v_rank = pagerank_v3(page_map, 1.0e-3, 0.85)
 
     print(v_rank)
 

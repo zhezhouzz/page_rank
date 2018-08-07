@@ -9,6 +9,7 @@
 #include <random>
 #include <sstream>
 #include "debug/utils_debug.h"
+#include "kernels/opencl/clhost.h"
 
 using namespace taco;
 
@@ -22,8 +23,8 @@ using namespace taco;
 constexpr double PAGE_RANK_EPS = 1.0e-15;
 constexpr double PAGE_RANK_D = 0.85f;
 constexpr double PAGE_RANK_MAX = 1.0f;
-// const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/page_map.mtx";
-const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/5x5-7.mtx";
+const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/page_map.mtx";
+// const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/8x8-12.mtx";
 
 int assemble(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
              taco_tensor_t* z) {
@@ -185,6 +186,13 @@ int main(int argc, char* argv[]) {
     FP_LOG(FP_LEVEL_INFO, "[assemble]\n");
     ret_code = assemble(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z);
     ERROR_HANDLE_;
+
+#ifdef USE_OPENCL
+    prepare(c_tensor_A, c_tensor_alpha, c_tensor_x, c_tensor_y, c_tensor_z);
+    print_vector_tensor(c_tensor_y);
+    return 0;
+#endif
+
     bool flag_x2y = true;
 #ifndef FPOPT
     int times = 0;

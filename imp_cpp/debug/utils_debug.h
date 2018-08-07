@@ -41,7 +41,8 @@ void _FP_LOG(int level, const char* format, ...);
 #define FP_LOG_D(lv, ...)
 #endif
 
-#define DEFAULT_DEBUG FP_LOG(FP_LEVEL_ERROR, "[%s:%s:%d]\n", __FILE__, __FUNCTION__, __LINE__)
+#define DEFAULT_DEBUG FP_LOG(FP_LEVEL_INFO, "[%s:%s:%d]\n", __FILE__, __FUNCTION__, __LINE__)
+#define DEFAULT_ERROR_DEBUG FP_LOG(FP_LEVEL_ERROR, "[%s:%s:%d]\n", __FILE__, __FUNCTION__, __LINE__)
 
 class FPDebugTimer {
 private:
