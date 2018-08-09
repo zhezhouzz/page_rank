@@ -8,8 +8,10 @@
 #include <limits>
 #include <random>
 #include <sstream>
+#include "cmd_handle.h"
 #include "debug/utils_debug.h"
 #include "kernels/opencl/clhost.h"
+#include "kernels/taco/taco_page_rank.h"
 
 using namespace taco;
 
@@ -20,7 +22,7 @@ using namespace taco;
         }                                                                              \
     } while (0)
 
-constexpr double PAGE_RANK_EPS = 1.0e-15;
+constexpr double PAGE_RANK_EPS = 1.0e-8;
 constexpr double PAGE_RANK_D = 0.85f;
 constexpr double PAGE_RANK_MAX = 1.0f;
 const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/page_map.mtx";
@@ -66,81 +68,6 @@ int assemble(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tens
     return 0;
 }
 
-int compute(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
-            taco_tensor_t* z) {
-    int y1_dimension = (int)(y->dimensions[y->mode_ordering[0]]);
-    double* __restrict y_vals = (double*)(y->vals);
-    double* __restrict alpha_vals = (double*)(alpha->vals);
-    int* __restrict A1_pos = (int*)(A->indices[0][0]);
-    int* __restrict A1_coord = (int*)(A->indices[0][1]);
-    int* __restrict A2_pos = (int*)(A->indices[1][0]);
-    int* __restrict A2_coord = (int*)(A->indices[1][1]);
-    double* __restrict A_vals = (double*)(A->vals);
-    double* __restrict x_vals = (double*)(x->vals);
-    int z1_dimension = (int)(z->dimensions[z->mode_ordering[0]]);
-    double* __restrict z_vals = (double*)(z->vals);
-    for (int32_t py = 0; py < y1_dimension; py++) {
-        y_vals[py] = 0;
-    }
-    int32_t pA1 = A1_pos[0];
-    int32_t A1_end = A1_pos[1];
-    int32_t iz = 0;
-    int32_t z1_end = z1_dimension;
-    while (pA1 < A1_end) {
-        int32_t iA = A1_coord[pA1];
-        int32_t pz1 = iz;
-        int32_t py1 = iz;
-        if (iA == iz) {
-            double tj = 0;
-            for (int32_t pA2 = A2_pos[pA1]; pA2 < A2_pos[(pA1 + 1)]; pA2++) {
-                int32_t jA = A2_coord[pA2];
-                tj += A_vals[pA2] * x_vals[jA];
-                FP_LOG(FP_LEVEL_INFO, "  %fx%f=%f\n", A_vals[pA2], x_vals[jA],
-                       A_vals[pA2] * x_vals[jA]);
-            }
-            y_vals[py1] = alpha_vals[0] * tj + z_vals[pz1];
-            FP_LOG(FP_LEVEL_INFO, "%fx%f + %f=%f\n", alpha_vals[0], tj, z_vals[pz1], y_vals[py1]);
-        } else {
-            y_vals[py1] = z_vals[pz1];
-        }
-        pA1 += (int32_t)(iA == iz);
-        iz++;
-    }
-    while (iz < z1_end) {
-        int32_t pz1 = iz;
-        int32_t py1 = iz;
-        y_vals[py1] = z_vals[pz1];
-        iz++;
-    }
-    return 0;
-}
-
-int loop_compute(taco_tensor_t* x, taco_tensor_t* y) {
-    double* __restrict x_vals = (double*)(x->vals);
-    int y1_dimension = (int)(y->dimensions[y->mode_ordering[0]]);
-    double* __restrict y_vals = (double*)(y->vals);
-#pragma omp parallel for
-    for (int32_t iy = 0; iy < y1_dimension; iy++) {
-        x_vals[iy] = y_vals[iy];
-    }
-    return 0;
-}
-
-double vetor_norm_compute(taco_tensor_t* x, taco_tensor_t* y) {
-    int y1_dimension = (int)(y->dimensions[y->mode_ordering[0]]);
-    int x1_dimension = (int)(x->dimensions[x->mode_ordering[0]]);
-    assert(y1_dimension == x1_dimension);
-    double* __restrict x_vals = (double*)(x->vals);
-    double* __restrict y_vals = (double*)(y->vals);
-    double norm = 0;
-#pragma omp parallel for
-    for (int32_t iy = 0; iy < y1_dimension; iy++) {
-        double diff = x_vals[iy] - y_vals[iy];
-        norm += diff * diff;
-    }
-    return norm;
-}
-
 void print_vector_tensor(taco_tensor_t* x) {
     FP_LOG(FP_LEVEL_INFO, "vector: [");
     for (int i = 0; i < (int)(x->dimensions[x->mode_ordering[0]]); i++) {
@@ -151,6 +78,7 @@ void print_vector_tensor(taco_tensor_t* x) {
 }
 
 int main(int argc, char* argv[]) {
+    CmdOpt cmd_opt = cmd_handle(argc, argv);
     std::default_random_engine gen(0);
     std::uniform_real_distribution<double> unif(0.0, 1.0);
 
@@ -187,13 +115,11 @@ int main(int argc, char* argv[]) {
     ret_code = assemble(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z);
     ERROR_HANDLE_;
 
-#ifdef USE_OPENCL
-    prepare(c_tensor_A, c_tensor_alpha, c_tensor_x, c_tensor_y, c_tensor_z);
-    print_vector_tensor(c_tensor_y);
-    return 0;
-#endif
+    prepare(cmd_opt.kernel_type);
+    upload(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z, cmd_opt.kernel_type);
 
-    bool flag_x2y = true;
+    taco_tensor_t* pre_result = nullptr;
+    taco_tensor_t* cur_result = nullptr;
 #ifndef FPOPT
     int times = 0;
 #endif
@@ -201,46 +127,31 @@ int main(int argc, char* argv[]) {
         FPDebugTimer timer_page_rank(FP_LEVEL_WARNING, __FILE__, __LINE__);
         double norm = std::numeric_limits<double>::max();
         do {
-            FP_LOG(FP_LEVEL_INFO, "[compute]\n");
+            FP_LOG(FP_LEVEL_INFO, "[page_rank]\n");
             {
                 FPDebugTimer timer_compute(FP_LEVEL_INFO, __FILE__, __LINE__);
-                if (flag_x2y) {
-                    ret_code =
-                        compute(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z);
-                } else {
-                    ret_code =
-                        compute(c_tensor_x, c_tensor_alpha, c_tensor_A, c_tensor_y, c_tensor_z);
-                }
+                ret_code = page_rank_once(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x,
+                                          c_tensor_z, cmd_opt.kernel_type);
                 ERROR_HANDLE_;
+                ret_code = download(&pre_result, &cur_result, cmd_opt.kernel_type);
             }
-            FP_LOG(FP_LEVEL_INFO, "[norm]\n");
+
+            FP_LOG(FP_LEVEL_INFO, "[vetor_norm]\n");
             {
                 FPDebugTimer timer_norm(FP_LEVEL_INFO, __FILE__, __LINE__);
-                if (flag_x2y) {
-                    norm = vetor_norm_compute(c_tensor_x, c_tensor_y);
-                } else {
-                    norm = vetor_norm_compute(c_tensor_y, c_tensor_x);
-                }
+                norm = vetor_norm(pre_result, cur_result, cmd_opt.kernel_type);
             }
             FP_LOG(FP_LEVEL_INFO, "norm = %.10e\n", norm);
-            flag_x2y = not flag_x2y;
 #ifndef FPOPT
             times++;
             FP_LOG(FP_LEVEL_INFO, "<loop %d>\n", times);
-            if (flag_x2y) {
-                print_vector_tensor(c_tensor_y);
-            } else {
-                print_vector_tensor(c_tensor_x);
-            }
+            print_vector_tensor(cur_result);
 #endif
         } while (norm > PAGE_RANK_EPS);
     }
+    finish(cmd_opt.kernel_type);
 #ifndef FPOPT
     FP_LOG(FP_LEVEL_WARNING, "loop: %d times\n", times);
 #endif
-    if (flag_x2y) {
-        write("result.tns", x);
-    } else {
-        write("result.tns", y);
-    }
+    print_vector_tensor(cur_result);
 }

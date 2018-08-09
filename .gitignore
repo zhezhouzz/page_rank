@@ -3,3 +3,4 @@
 */temp
 *.mtx
 *.tns
+*/build/*
