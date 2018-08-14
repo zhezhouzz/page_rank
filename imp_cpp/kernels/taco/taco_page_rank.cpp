@@ -1,14 +1,6 @@
 #include "taco_page_rank.h"
 #include "debug/utils_debug.h"
 
-namespace {
-taco_tensor_t* y;
-taco_tensor_t* alpha;
-taco_tensor_t* A;
-taco_tensor_t* x;
-taco_tensor_t* z;
-};  // namespace
-
 int taco_page_rank_(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
                     taco_tensor_t* z) {
     int y1_dimension = (int)(y->dimensions[y->mode_ordering[0]]);
@@ -58,31 +50,32 @@ int taco_page_rank_(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, ta
     return 0;
 }
 
-int taco_upload(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
+int KernelTaco::upload(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
                 taco_tensor_t* z) {
-    ::y = y;
-    ::alpha = alpha;
-    ::A = A;
-    ::x = x;
-    ::z = z;
+    _y = y;
+    _alpha = alpha;
+    _A = A;
+    _x = x;
+    _z = z;
     return 0;
 }
 
-int taco_page_rank(bool flag_x2y) {
+int KernelTaco::page_rank_once(bool flag_x2y) {
     if (flag_x2y) {
-        return taco_page_rank_(::y, ::alpha, ::A, ::x, ::z);
+        FP_LOG(FP_LEVEL_INFO, "flag_x2y = true\n");
+        return taco_page_rank_(_y, _alpha, _A, _x, _z);
     } else {
-        return taco_page_rank_(::x, ::alpha, ::A, ::y, ::z);
+        return taco_page_rank_(_x, _alpha, _A, _y, _z);
     }
 }
 
-int taco_download(bool flag_x2y, taco_tensor_t** x, taco_tensor_t** y) {
+int KernelTaco::download(bool flag_x2y, taco_tensor_t** x, taco_tensor_t** y) {
     if (flag_x2y) {
-        *x = ::y;
-        *y = ::x;
+        *x = _y;
+        *y = _x;
     } else {
-        *x = ::x;
-        *y = ::y;
+        *x = _x;
+        *y = _y;
     }
     return 0;
 }
@@ -98,7 +91,7 @@ int taco_swap_vector(taco_tensor_t* x, taco_tensor_t* y) {
     return 0;
 }
 
-double taco_vetor_norm(taco_tensor_t* x, taco_tensor_t* y) {
+double KernelTaco::vetor_norm(taco_tensor_t* x, taco_tensor_t* y) const {
     int y1_dimension = (int)(y->dimensions[y->mode_ordering[0]]);
     int x1_dimension = (int)(x->dimensions[x->mode_ordering[0]]);
     assert(y1_dimension == x1_dimension);

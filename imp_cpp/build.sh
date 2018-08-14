@@ -3,9 +3,8 @@
 mkdir -p build
 cd build
 cmake \
--DCUR_DEBUG_LEVEL:STRING=2 \
--DUSE_OPENCL=ON \
--DCMAKE_BUILD_TYPE=Release \
+-DCUR_DEBUG_LEVEL:STRING=$1 \
+-DCMAKE_BUILD_TYPE=$2 \
 ..
 make
 make install DESTDIR="../install-dir"

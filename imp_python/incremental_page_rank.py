@@ -89,6 +89,7 @@ def gen_markov_matrix(page_map, damping_factor):
 
 def find_stationary(active_table, v_rank_new, v_rank, eps,
                     active_index, inactive_index):
+    """find_stationary"""
     print("v_rank")
     print(v_rank)
     print("v_rank_new")
