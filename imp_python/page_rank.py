@@ -98,10 +98,11 @@ def pagerank_v3(page_map, eps=1.0e-8, d=0.85):
 def main():
     """main func of page rank"""
     # mm_page_map = sio.mmread("../data/5x5-7.mtx")
-    mm_page_map = sio.mmread("../data/10x10-20.mtx")
-    # mm_page_map = sio.mmread("../data/page_map.mtx")
+    # mm_page_map = sio.mmread("../data/10x10-20.mtx")
+    mm_page_map = sio.mmread("../data/page_map.mtx")
     print(mm_page_map.A)
     page_map = np.array(mm_page_map.A)
+    sio.mmwrite("../data/page_map_dense.mtx", page_map)
 
     v_rank = pagerank_v3(page_map, 1.0e-3, 0.85)
 

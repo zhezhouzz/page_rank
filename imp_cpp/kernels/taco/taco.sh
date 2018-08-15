@@ -14,9 +14,22 @@ taco "y(i) = alpha * (A(i, j) * x(j)) + z(i)" \
 -t=x:double \
 -t=z:double \
 -t=y:double \
--write-source=page_rank_kernel.c \
--write-compute=page_rank_compute.c \
--write-assembly=page_rank_assembly.c
+-write-source=sparse_kernel.c \
+-write-compute=sparse_compute.c \
+-write-assembly=sparse_assembly.c
+
+taco "y(i) = alpha * (A(i, j) * x(j)) + z(i)" \
+-f=A:dd:0,1 \
+-f=x:d:0 \
+-f=z:d:0 \
+-f=y:d:0 \
+-t=A:double \
+-t=x:double \
+-t=z:double \
+-t=y:double \
+-write-source=dense_kernel.c \
+-write-compute=dense_compute.c \
+-write-assembly=dense_assembly.c
 
 taco "x(i) = y(i)" \
 -f=x:d:0 \

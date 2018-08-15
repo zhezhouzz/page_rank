@@ -50,6 +50,30 @@ int taco_page_rank_(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, ta
     return 0;
 }
 
+int dense_mxv_(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
+                    taco_tensor_t* z) {
+  double* __restrict y_vals = (double*)(y->vals);
+  double* __restrict alpha_vals = (double*)(alpha->vals);
+  int A1_dimension = (int)(A->dimensions[A->mode_ordering[0]]);
+  int A2_dimension = (int)(A->dimensions[A->mode_ordering[1]]);
+  double* __restrict A_vals = (double*)(A->vals);
+  double* __restrict x_vals = (double*)(x->vals);
+  double* __restrict z_vals = (double*)(z->vals);
+  #pragma omp parallel for
+  for (int32_t iA = 0; iA < A1_dimension; iA++) {
+    double tj = 0;
+    for (int32_t jA = 0; jA < A2_dimension; jA++) {
+      int32_t pA2 = iA * A2_dimension + jA;
+      tj += A_vals[pA2] * x_vals[jA];
+      FP_LOG(FP_LEVEL_INFO, "  %fx%f=%f\n", A_vals[pA2], x_vals[jA],
+                       A_vals[pA2] * x_vals[jA]);
+    }
+    y_vals[iA] = alpha_vals[0] * tj + z_vals[iA];
+    FP_LOG(FP_LEVEL_INFO, "%fx%f + %f=%f\n", alpha_vals[0], tj, z_vals[iA], y_vals[iA]);
+  }
+  return 0;
+}
+
 int KernelTaco::upload(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
                 taco_tensor_t* z) {
     _y = y;
@@ -66,6 +90,25 @@ int KernelTaco::page_rank_once(bool flag_x2y) {
         return taco_page_rank_(_y, _alpha, _A, _x, _z);
     } else {
         return taco_page_rank_(_x, _alpha, _A, _y, _z);
+    }
+}
+
+int KernelTaco::upload_dense_mxv(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
+                taco_tensor_t* z) {
+    _y = y;
+    _alpha = alpha;
+    _A = A;
+    _x = x;
+    _z = z;
+    return 0;
+}
+
+int KernelTaco::dense_mxv(bool flag_x2y) {
+    if (flag_x2y) {
+        FP_LOG(FP_LEVEL_INFO, "flag_x2y = true\n");
+        return dense_mxv_(_y, _alpha, _A, _x, _z);
+    } else {
+        return dense_mxv_(_x, _alpha, _A, _y, _z);
     }
 }
 
