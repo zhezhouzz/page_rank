@@ -8,6 +8,8 @@
 #include <CL/cl.h>
 #endif
 
+#include "opencl_utils.h"
+
 class KernelOpencl final : public KernelInterface {
 public:
     KernelOpencl();
@@ -30,20 +32,18 @@ public:
     cl_uint ret_num_platforms;
     cl_int ret_code = CL_SUCCESS;
     int tensor_x_length = 0;
-    cl_mem tensor_x_mem;
-    cl_mem tensor_y_mem;
-    cl_mem tensor_z_mem;
+    std::shared_ptr<CppCLMem<double>> tensor_x_mem;
+    std::shared_ptr<CppCLMem<double>> tensor_y_mem;
+    std::shared_ptr<CppCLMem<double>> tensor_z_mem;
     int A2_pos_length = 0;
     int A2_coord_length = 0;
     int A_vals_length = 0;
-    cl_mem tensor_A2_pos_mem;
-    cl_mem tensor_A2_coord_mem;
-    cl_mem tensor_A_vals_mem;
-    cl_context context;
-    cl_command_queue command_queue;
-    cl_program program;
-    cl_kernel sparse_mxv_kernel;
-    cl_kernel dense_mxv_kernel;
-private:
-    int make_cl_kernel(cl_program* program, const std::string& cl_kernel_filepath);
+    std::shared_ptr<CppCLMem<int>> tensor_A2_pos_mem;
+    std::shared_ptr<CppCLMem<int>> tensor_A2_coord_mem;
+    std::shared_ptr<CppCLMem<double>> tensor_A_vals_mem;
+    std::shared_ptr<CppCLContext> context;
+    std::shared_ptr<CppCLCQ> command_queue;
+    std::shared_ptr<CppCLProgram> program;
+    std::shared_ptr<CppCLKernel> sparse_mxv_kernel;
+    std::shared_ptr<CppCLKernel> dense_mxv_kernel;
 };

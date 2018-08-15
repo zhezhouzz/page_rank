@@ -65,7 +65,6 @@ int main(int argc, char* argv[]) {
     std::unordered_set<KernelType> kernels_set;
     kernels_set.insert(cmd_opt.kernel_type);
     auto algo_context = AlgoInterface::make(cmd_opt.algo_type, kernels_set);
-
     algo_context->upload(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z);
     algo_context->run();
     algo_context->download(&cur_result);

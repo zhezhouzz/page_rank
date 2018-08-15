@@ -6,6 +6,7 @@
     do {                                                                               \
         if (ret_code != 0) {                                                           \
             std::cout << "[line " << __LINE__ << "] error: " << ret_code << std::endl; \
+            return 0;                                                                  \
         }                                                                              \
     } while (0)
 
