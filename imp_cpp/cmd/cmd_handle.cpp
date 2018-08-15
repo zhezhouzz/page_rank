@@ -12,6 +12,17 @@ KernelType kernel_type_handle(std::string& kernel_type_str) {
     }
 }
 
+AlgoType algo_type_handle(std::string& algo_type_str) {
+    if (algo_type_str == "sparse") {
+        return AlgoType::sparse;
+    } else if (algo_type_str == "dense") {
+        return AlgoType::dense;
+    } else {
+        std::cout << "bad algo_type" << std::endl;
+        exit(0);
+    }
+}
+
 CmdOpt cmd_handle(int argc, char* argv[]) {
     CmdOpt ret_opt;
     try {
@@ -19,9 +30,11 @@ CmdOpt cmd_handle(int argc, char* argv[]) {
         options.positional_help("[optional args]").show_positional_help();
 
         std::string kernel_type_str;
+        std::string algorithm_type_str;
 
         options.add_options()("k,kernel", "kernel type",
-                              cxxopts::value<std::string>(kernel_type_str));
+                              cxxopts::value<std::string>(kernel_type_str))(
+            "a,algorithm", "algorithm type", cxxopts::value<std::string>(algorithm_type_str));
 
         auto result = options.parse(argc, argv);
 
@@ -31,6 +44,8 @@ CmdOpt cmd_handle(int argc, char* argv[]) {
         }
         std::cout << "k = " << kernel_type_str << std::endl;
         ret_opt.kernel_type = kernel_type_handle(kernel_type_str);
+        std::cout << "a = " << algorithm_type_str << std::endl;
+        ret_opt.algo_type = algo_type_handle(algorithm_type_str);
 
     } catch (const cxxopts::OptionException& e) {
         std::cout << "error parsing options: " << e.what() << std::endl;
