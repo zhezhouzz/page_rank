@@ -1,5 +1,4 @@
 #include "utils.h"
-#include "debug/utils_debug.h"
 
 int assemble(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
              taco_tensor_t* z) {
@@ -41,12 +40,12 @@ int assemble(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tens
     return 0;
 }
 
-void print_vector_tensor(taco_tensor_t* x) {
-    FP_LOG(FP_LEVEL_INFO, "tensor: [");
+void print_vector_tensor(taco_tensor_t* x, FpDebugLevel level) {
+    FP_LOG(level, "tensor: [");
     for (int i = 0; i < (int)(x->dimensions[x->mode_ordering[0]]); i++) {
-        FP_LOG(FP_LEVEL_INFO, "%.10e ", ((double*)(x->vals))[i]);
+        FP_LOG(level, "%.10e ", ((double*)(x->vals))[i]);
     }
-    FP_LOG(FP_LEVEL_INFO, "]\n");
+    FP_LOG(level, "]\n");
     return;
 }
 

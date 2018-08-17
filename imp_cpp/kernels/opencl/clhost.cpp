@@ -14,7 +14,7 @@ constexpr int CL_WORK_GROUP = 1;
     } while (0)
 
 static int approximate_mxv_(taco_tensor_t* y, taco_tensor_t* A, taco_tensor_t* x,
-                     std::vector<bool> if_active) {
+                            std::vector<bool> if_active) {
     double* __restrict y_vals = (double*)(y->vals);
     int A1_dimension = (int)(A->dimensions[A->mode_ordering[0]]);
     int A2_dimension = (int)(A->dimensions[A->mode_ordering[1]]);
@@ -46,8 +46,6 @@ KernelOpencl::KernelOpencl() {
     program = std::make_shared<CppCLProgram>(
         context, &device_id,
         "/Users/admin/workspace/page_rank/imp_cpp/kernels/opencl/page_rank_kernel.cl");
-    sparse_mxv_kernel = std::make_shared<CppCLKernel>(program, "sparse_mxv");
-    dense_mxv_kernel = std::make_shared<CppCLKernel>(program, "dense_mxv");
     return;
 }
 
@@ -95,7 +93,8 @@ int KernelOpencl::upload(taco_tensor_t* c_tensor_y, taco_tensor_t* c_tensor_alph
     tensor_y_mem = std::make_shared<CppCLMem<double>>(context, command_queue, nullptr,
                                                       tensor_y_length, CL_MEM_READ_WRITE);
 
-    CL_ERR_HANDLE;
+    sparse_mxv_kernel = std::make_shared<CppCLKernel>(program, "sparse_mxv");
+
     ret_code = clSetKernelArg(sparse_mxv_kernel->kernel, 0, sizeof(uint32_t), &tensor_x_length);
     CL_ERR_HANDLE;
     ret_code =
@@ -163,6 +162,8 @@ int KernelOpencl::upload_dense_mxv(taco_tensor_t* c_tensor_y, taco_tensor_t* c_t
     tensor_y_mem = std::make_shared<CppCLMem<double>>(context, command_queue, nullptr,
                                                       tensor_y_length, CL_MEM_READ_WRITE);
 
+    dense_mxv_kernel = std::make_shared<CppCLKernel>(program, "dense_mxv");
+
     ret_code = clSetKernelArg(dense_mxv_kernel->kernel, 0, sizeof(uint32_t), &tensor_x_length);
     CL_ERR_HANDLE;
     ret_code = clSetKernelArg(dense_mxv_kernel->kernel, 1, sizeof(cl_mem), &tensor_A_vals_mem->mem);
@@ -176,6 +177,7 @@ int KernelOpencl::upload_dense_mxv(taco_tensor_t* c_tensor_y, taco_tensor_t* c_t
     CL_ERR_HANDLE;
     return 0;
 }
+
 int KernelOpencl::dense_mxv(bool flag_x2y) {
     size_t global_work_size[] = {static_cast<size_t>(CL_WORK_GROUP * tensor_x_length)};
     FP_LOG(FP_LEVEL_INFO, "global_work_size = %d\n", CL_WORK_GROUP);
@@ -198,16 +200,11 @@ int KernelOpencl::dense_mxv(bool flag_x2y) {
     return 0;
 }
 
-int KernelOpencl::upload_approximate_mxv(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A,
-                                       taco_tensor_t* x, taco_tensor_t* z) {
-    _y = y;
-    _A = A;
-    _x = x;
+int KernelOpencl::gen_markov_matrix(taco_tensor_t* alpha, taco_tensor_t* A) {
     double* __restrict alpha_vals = (double*)(alpha->vals);
     int A1_dimension = (int)(A->dimensions[A->mode_ordering[0]]);
     int A2_dimension = (int)(A->dimensions[A->mode_ordering[1]]);
     double* __restrict A_vals = (double*)(A->vals);
-    double* __restrict z_vals = (double*)(z->vals);
 
     double remain_factor = (1 - alpha_vals[0]) / A1_dimension;
     double outflow_factor = alpha_vals[0];
@@ -220,22 +217,84 @@ int KernelOpencl::upload_approximate_mxv(taco_tensor_t* y, taco_tensor_t* alpha,
             FP_LOG(FP_LEVEL_INFO, "  A_vals[%d]=%f\n", pA2, A_vals[pA2]);
         }
     }
+    return 0;
+}
 
+int KernelOpencl::upload_approximate_mxv(taco_tensor_t* c_tensor_y, taco_tensor_t* c_tensor_alpha,
+                                         taco_tensor_t* c_tensor_A, taco_tensor_t* c_tensor_x,
+                                         taco_tensor_t* c_tensor_z) {
+    _y = c_tensor_y;
+    _A = c_tensor_A;
+    _x = c_tensor_x;
+
+    tensor_x_length = (int)(c_tensor_x->dimensions[c_tensor_x->mode_ordering[0]]);
+    tensor_x_mem = std::make_shared<CppCLMem<double>>(
+        context, command_queue, (double*)(c_tensor_x->vals), tensor_x_length, CL_MEM_READ_WRITE);
+
+    int tensor_y_length = (int)(c_tensor_y->dimensions[c_tensor_y->mode_ordering[0]]);
+    tensor_y_mem = std::make_shared<CppCLMem<double>>(context, command_queue, nullptr,
+                                                      tensor_y_length, CL_MEM_READ_WRITE);
+
+    gen_markov_matrix(c_tensor_alpha, _A);
+    int A1_dimension = (int)(_A->dimensions[_A->mode_ordering[0]]);
+    int A2_dimension = (int)(_A->dimensions[_A->mode_ordering[1]]);
+    tensor_A_vals_mem = std::make_shared<CppCLMem<double>>(
+        context, command_queue, (double*)(_A->vals), A1_dimension * A2_dimension, CL_MEM_READ_WRITE);
+
+    approximate_mxv_kernel = std::make_shared<CppCLKernel>(program, "approximate_mxv");
+
+    ret_code =
+        clSetKernelArg(approximate_mxv_kernel->kernel, 0, sizeof(uint32_t), &tensor_x_length);
+    CL_ERR_HANDLE;
+    ret_code =
+        clSetKernelArg(approximate_mxv_kernel->kernel, 1, sizeof(cl_mem), &tensor_A_vals_mem->mem);
+    CL_ERR_HANDLE;
+    ret_code =
+        clSetKernelArg(approximate_mxv_kernel->kernel, 2, sizeof(double) * CL_WORK_GROUP, nullptr);
+    CL_ERR_HANDLE;
     _history_active_table.resize(A1_dimension, 0);
     return 0;
 }
 
 int KernelOpencl::approximate_mxv(bool flag_x2y, std::vector<bool> if_active) {
+    size_t global_work_size[] = {static_cast<size_t>(CL_WORK_GROUP * tensor_x_length)};
+    size_t local_work_size[] = {CL_WORK_GROUP};
+    std::vector<int> if_active_tmp(if_active.size());
+    for(int i = 0; i < if_active.size(); i++) {
+        if_active_tmp[i] = (int)(if_active[i]);
+    }
+    tensor_active_mem = std::make_shared<CppCLMem<int>>(context, command_queue, if_active_tmp.data(),
+                                                         tensor_x_length, CL_MEM_READ_WRITE);
+    ret_code =
+        clSetKernelArg(approximate_mxv_kernel->kernel, 5, sizeof(cl_mem), &tensor_x_mem->mem);
+    CL_ERR_HANDLE;
+    FP_LOG(FP_LEVEL_INFO, "global_work_size = %d\n", CL_WORK_GROUP);
     if (flag_x2y) {
         FP_LOG(FP_LEVEL_INFO, "flag_x2y = true\n");
-        return approximate_mxv_(_y, _A, _x, if_active);
+        ret_code =
+            clSetKernelArg(approximate_mxv_kernel->kernel, 3, sizeof(cl_mem), &tensor_x_mem->mem);
+        CL_ERR_HANDLE;
+        ret_code =
+            clSetKernelArg(approximate_mxv_kernel->kernel, 4, sizeof(cl_mem), &tensor_y_mem->mem);
+        CL_ERR_HANDLE;
     } else {
-        return approximate_mxv_(_x, _A, _y, if_active);
+        ret_code =
+            clSetKernelArg(approximate_mxv_kernel->kernel, 4, sizeof(cl_mem), &tensor_x_mem->mem);
+        CL_ERR_HANDLE;
+        ret_code =
+            clSetKernelArg(approximate_mxv_kernel->kernel, 3, sizeof(cl_mem), &tensor_y_mem->mem);
+        CL_ERR_HANDLE;
     }
+    ret_code =
+        clEnqueueNDRangeKernel(command_queue->command_queue, approximate_mxv_kernel->kernel, 1,
+                               nullptr, global_work_size, local_work_size, 0, nullptr, nullptr);
+    CL_ERR_HANDLE;
+    return 0;
 }
 
 int KernelOpencl::approximate_find_active(taco_tensor_t* x, taco_tensor_t* y,
-                                        std::vector<bool>& if_active, double eps, int stable_num) {
+                                          std::vector<bool>& if_active, double eps,
+                                          int stable_num) {
     int x1_dimension = (int)(x->dimensions[x->mode_ordering[0]]);
     assert(x1_dimension == if_active.size());
     double* __restrict x_vals = (double*)(x->vals);

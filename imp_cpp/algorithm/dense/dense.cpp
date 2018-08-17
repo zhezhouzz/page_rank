@@ -56,7 +56,7 @@ int AlgoDense::run() {
         } while (norm > PAGE_RANK_EPS);
     }
 #ifndef FPOPT
-    FP_LOG(FP_LEVEL_WARNING, "loop: %d times\n", times);
+    FP_LOG(FP_LEVEL_ERROR, "loop: %d times\n", times);
 #endif
     return 0;
 }

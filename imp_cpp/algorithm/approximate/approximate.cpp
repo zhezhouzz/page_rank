@@ -73,7 +73,7 @@ int AlgoApproximate::run() {
         } while (active_num > 0);
     }
 #ifndef FPOPT
-    FP_LOG(FP_LEVEL_WARNING, "loop: %d times\n", times);
+    FP_LOG(FP_LEVEL_ERROR, "loop: %d times\n", times);
 #endif
     return 0;
 }
