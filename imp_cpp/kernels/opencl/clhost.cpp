@@ -13,22 +13,6 @@ constexpr int CL_WORK_GROUP = 1;
         }                                                                                  \
     } while (0)
 
-// static int load_file(const char* file_path, char** source_str) {
-//     streampos size = 0;
-
-//     ifstream file(file_path, ios::in | ios::binary | ios::ate);
-//     if (file.is_open()) {
-//         size = file.tellg();
-//         *source_str = new char[size];
-//         file.seekg(0, ios::beg);
-//         file.read(*source_str, size);
-//         file.close();
-//     } else {
-//         FP_LOG(FP_LEVEL_ERROR, "[%s:%d] load_file(%s) err\n", __FILE__, __LINE__, file_path);
-//     }
-//     return size;
-// }
-
 static int approximate_mxv_(taco_tensor_t* y, taco_tensor_t* A, taco_tensor_t* x,
                      std::vector<bool> if_active) {
     double* __restrict y_vals = (double*)(y->vals);
@@ -226,7 +210,7 @@ int KernelOpencl::upload_approximate_mxv(taco_tensor_t* y, taco_tensor_t* alpha,
     double* __restrict z_vals = (double*)(z->vals);
 
     double remain_factor = (1 - alpha_vals[0]) / A1_dimension;
-    double outflow_factor = alpha_vals[0] / A1_dimension;
+    double outflow_factor = alpha_vals[0];
 
     for (int32_t iA = 0; iA < A1_dimension; iA++) {
         double tj = 0;
@@ -236,6 +220,8 @@ int KernelOpencl::upload_approximate_mxv(taco_tensor_t* y, taco_tensor_t* alpha,
             FP_LOG(FP_LEVEL_INFO, "  A_vals[%d]=%f\n", pA2, A_vals[pA2]);
         }
     }
+
+    _history_active_table.resize(A1_dimension, 0);
     return 0;
 }
 
@@ -260,32 +246,54 @@ int KernelOpencl::approximate_find_active(taco_tensor_t* x, taco_tensor_t* y,
             _history_active_table[i]++;
         }
         if (_history_active_table[i] >= stable_num) {
-            if_active[i] = true;
-        } else {
             if_active[i] = false;
+        } else {
+            if_active[i] = true;
         }
     }
     return 0;
 }
 
 int KernelOpencl::normalize(bool flag_x2y, std::vector<bool>& if_active) {
-    int x1_dimension = (int)(_x->dimensions[_x->mode_ordering[0]]);
-    assert(x1_dimension == if_active.size());
-    double* __restrict x_vals = (double*)(_x->vals);
-    double total_active_flow = 0;
-    double total_inactive_flow = 0;
-    // TODO optimate this, save the calculation
-    for (int i = 0; i < x1_dimension; i++) {
-        if(if_active[i]) {
-            total_active_flow += x_vals[i];
-        } else {
-            total_inactive_flow += x_vals[i];
+    if (flag_x2y) {
+        int y1_dimension = (int)(_y->dimensions[_y->mode_ordering[0]]);
+        assert(y1_dimension == if_active.size());
+        double* __restrict y_vals = (double*)(_y->vals);
+        double total_active_flow = 0;
+        double total_inactive_flow = 0;
+        // TODO optimate this, save the calculation
+        for (int i = 0; i < y1_dimension; i++) {
+            if (if_active[i]) {
+                total_active_flow += y_vals[i];
+            } else {
+                total_inactive_flow += y_vals[i];
+            }
         }
-    }
-    double inactive_factor = (1 - total_active_flow)/total_inactive_flow;
-    for (int i = 0; i < x1_dimension; i++) {
-        if(not if_active[i]) {
-            x_vals[i] = x_vals[i] * inactive_factor;
+        double inactive_factor = (1 - total_active_flow) / total_inactive_flow;
+        for (int i = 0; i < y1_dimension; i++) {
+            if (not if_active[i]) {
+                y_vals[i] = y_vals[i] * inactive_factor;
+            }
+        }
+    } else {
+        int x1_dimension = (int)(_x->dimensions[_x->mode_ordering[0]]);
+        assert(x1_dimension == if_active.size());
+        double* __restrict x_vals = (double*)(_x->vals);
+        double total_active_flow = 0;
+        double total_inactive_flow = 0;
+        // TODO optimate this, save the calculation
+        for (int i = 0; i < x1_dimension; i++) {
+            if (if_active[i]) {
+                total_active_flow += x_vals[i];
+            } else {
+                total_inactive_flow += x_vals[i];
+            }
+        }
+        double inactive_factor = (1 - total_active_flow) / total_inactive_flow;
+        for (int i = 0; i < x1_dimension; i++) {
+            if (not if_active[i]) {
+                x_vals[i] = x_vals[i] * inactive_factor;
+            }
         }
     }
     return 0;

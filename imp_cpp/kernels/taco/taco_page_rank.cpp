@@ -166,19 +166,6 @@ int KernelTaco::upload_approximate_mxv(taco_tensor_t* y, taco_tensor_t* alpha, t
     return 0;
 }
 
-static int print_vector_if_active(const std::vector<bool>& if_active) {
-    std::cout << "[";
-    for(int i = 0 ; i < if_active.size(); i++) {
-        if(if_active[i]) {
-            std::cout << "true" << ", ";
-        } else {
-            std::cout << "false" << ", ";
-        }
-    }
-    std::cout << "]" << std::endl;
-    return 0;
-}
-
 int KernelTaco::approximate_mxv(bool flag_x2y, std::vector<bool> if_active) {
     print_vector_if_active(if_active);
     if (flag_x2y) {
@@ -197,10 +184,7 @@ int KernelTaco::approximate_find_active(taco_tensor_t* x, taco_tensor_t* y,
     double* __restrict x_vals = (double*)(x->vals);
     double* __restrict y_vals = (double*)(y->vals);
     // TODO optimate this, save the calculation
-    print_vector_tensor(x);
-    print_vector_tensor(y);
     for (int i = 0; i < x1_dimension; i++) {
-        std::cout << "[find_active]" << i << " " << std::abs(x_vals[i] - y_vals[i]) << std::endl;
         if (std::abs(x_vals[i] - y_vals[i]) < eps) {
             _history_active_table[i]++;
         }
@@ -214,12 +198,8 @@ int KernelTaco::approximate_find_active(taco_tensor_t* x, taco_tensor_t* y,
 }
 
 int KernelTaco::normalize(bool flag_x2y, std::vector<bool>& if_active) {
-    std::cout << "KernelTaco::normalize" << std::endl;
-    std::cout << "approximate_mxv" << std::endl;
     if (flag_x2y) {
         int y1_dimension = (int)(_y->dimensions[_y->mode_ordering[0]]);
-        std::cout << y1_dimension << std::endl;
-        std::cout << if_active.size() << std::endl;
         assert(y1_dimension == if_active.size());
         double* __restrict y_vals = (double*)(_y->vals);
         double total_active_flow = 0;
@@ -240,8 +220,6 @@ int KernelTaco::normalize(bool flag_x2y, std::vector<bool>& if_active) {
         }
     } else {
         int x1_dimension = (int)(_x->dimensions[_x->mode_ordering[0]]);
-        std::cout << x1_dimension << std::endl;
-        std::cout << if_active.size() << std::endl;
         assert(x1_dimension == if_active.size());
         double* __restrict x_vals = (double*)(_x->vals);
         double total_active_flow = 0;
@@ -261,8 +239,6 @@ int KernelTaco::normalize(bool flag_x2y, std::vector<bool>& if_active) {
             }
         }
     }
-    print_vector_tensor(_x);
-    print_vector_tensor(_y);
     return 0;
 }
 
@@ -274,9 +250,6 @@ int KernelTaco::download(bool flag_x2y, taco_tensor_t** x, taco_tensor_t** y) {
         *x = _x;
         *y = _y;
     }
-    std::cout << "/download/" << std::endl;
-    print_vector_tensor(*x);
-    print_vector_tensor(*y);
     return 0;
 }
 

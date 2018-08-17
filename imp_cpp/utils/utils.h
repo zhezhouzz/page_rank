@@ -14,3 +14,4 @@ int assemble(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tens
              taco_tensor_t* z);
 
 void print_vector_tensor(taco_tensor_t* x);
+void print_vector_if_active(const std::vector<bool>& if_active);

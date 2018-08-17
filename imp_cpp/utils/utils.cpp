@@ -42,9 +42,22 @@ int assemble(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tens
 }
 
 void print_vector_tensor(taco_tensor_t* x) {
-    FP_LOG(FP_LEVEL_INFO, "vector: [");
+    FP_LOG(FP_LEVEL_INFO, "tensor: [");
     for (int i = 0; i < (int)(x->dimensions[x->mode_ordering[0]]); i++) {
         FP_LOG(FP_LEVEL_INFO, "%.10e ", ((double*)(x->vals))[i]);
+    }
+    FP_LOG(FP_LEVEL_INFO, "]\n");
+    return;
+}
+
+void print_vector_if_active(const std::vector<bool>& if_active) {
+    FP_LOG(FP_LEVEL_INFO, "if_active: [");
+    for(int i = 0 ; i < if_active.size(); i++) {
+        if(if_active[i]) {
+            FP_LOG(FP_LEVEL_INFO, "true, ");
+        } else {
+            FP_LOG(FP_LEVEL_INFO, "false, ");
+        }
     }
     FP_LOG(FP_LEVEL_INFO, "]\n");
     return;
