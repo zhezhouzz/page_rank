@@ -13,14 +13,9 @@
 #include "debug/utils_debug.h"
 #include "kernels/kernel_interface.h"
 #include "utils/utils.h"
+#include "default_config.h"
 
 using namespace taco;
-
-constexpr double PAGE_RANK_D = 0.85f;
-constexpr double PAGE_RANK_MAX = 1.0f;
-// const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/page_map.mtx";
-const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/page_map_dense.mtx";
-// const char* MTX_DATA_PATH = "/Users/admin/workspace/page_rank/data/8x8-12.mtx";
 
 int main(int argc, char* argv[]) {
     int ret_code = 0;
@@ -29,7 +24,7 @@ int main(int argc, char* argv[]) {
     /* init tensor */
     Format csr({Sparse, Sparse});
     Format dv({Dense});
-    Tensor<double> A = read(MTX_DATA_PATH, csr);
+    Tensor<double> A = read(cmd_opt.data_set_path.c_str(), csr);
     FP_LOG(FP_LEVEL_INFO, "[LOAD FINISHED]\n");
 
     Tensor<double> x({A.getDimension(1)}, dv);

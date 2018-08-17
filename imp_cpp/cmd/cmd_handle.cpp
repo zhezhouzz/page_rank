@@ -1,7 +1,7 @@
 #include "cmd_handle.h"
 #include "vendor/include/cxxopts.hpp"
 
-KernelType kernel_type_handle(std::string& kernel_type_str) {
+static KernelType kernel_type_handle(const std::string& kernel_type_str) {
     if (kernel_type_str == "opencl") {
         return KernelType::opencl;
     } else if (kernel_type_str == "taco") {
@@ -12,7 +12,7 @@ KernelType kernel_type_handle(std::string& kernel_type_str) {
     }
 }
 
-AlgoType algo_type_handle(std::string& algo_type_str) {
+static AlgoType algo_type_handle(const std::string& algo_type_str) {
     if (algo_type_str == "sparse") {
         return AlgoType::sparse;
     } else if (algo_type_str == "dense") {
@@ -25,6 +25,15 @@ AlgoType algo_type_handle(std::string& algo_type_str) {
     }
 }
 
+static std::string data_set_handle(const std::string& data_set_path_str) {
+    if (data_set_path_str != "") {
+        return data_set_path_str;
+    } else {
+        std::cout << "bad data_set" << std::endl;
+        exit(0);
+    }
+}
+
 CmdOpt cmd_handle(int argc, char* argv[]) {
     CmdOpt ret_opt;
     try {
@@ -33,10 +42,12 @@ CmdOpt cmd_handle(int argc, char* argv[]) {
 
         std::string kernel_type_str;
         std::string algorithm_type_str;
+        std::string data_set_path_str;
 
         options.add_options()("k,kernel", "kernel type",
                               cxxopts::value<std::string>(kernel_type_str))(
-            "a,algorithm", "algorithm type", cxxopts::value<std::string>(algorithm_type_str));
+            "a,algorithm", "algorithm type", cxxopts::value<std::string>(algorithm_type_str))(
+            "d,data", "data set path", cxxopts::value<std::string>(data_set_path_str));
 
         auto result = options.parse(argc, argv);
 
@@ -48,6 +59,8 @@ CmdOpt cmd_handle(int argc, char* argv[]) {
         ret_opt.kernel_type = kernel_type_handle(kernel_type_str);
         std::cout << "a = " << algorithm_type_str << std::endl;
         ret_opt.algo_type = algo_type_handle(algorithm_type_str);
+        std::cout << "d = " << data_set_path_str << std::endl;
+        ret_opt.data_set_path = data_set_handle(data_set_path_str);
 
     } catch (const cxxopts::OptionException& e) {
         std::cout << "error parsing options: " << e.what() << std::endl;
