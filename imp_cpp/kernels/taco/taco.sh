@@ -31,6 +31,19 @@ taco "y(i) = alpha * (A(i, j) * x(j)) + z(i)" \
 -write-compute=dense_compute.c \
 -write-assembly=dense_assembly.c
 
+taco "y(i) = A(i, j) * x(j) + A(i, k) * t(k)" \
+-f=A:dd:0,1 \
+-f=x:d:0 \
+-f=t:d:0 \
+-f=y:d:0 \
+-t=A:double \
+-t=x:double \
+-t=z:double \
+-t=y:double \
+-write-source=approximate_kernel.c \
+-write-compute=approximate_compute.c \
+-write-assembly=approximate_assembly.c
+
 taco "x(i) = y(i)" \
 -f=x:d:0 \
 -f=y:d:0 \

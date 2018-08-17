@@ -17,6 +17,8 @@ AlgoType algo_type_handle(std::string& algo_type_str) {
         return AlgoType::sparse;
     } else if (algo_type_str == "dense") {
         return AlgoType::dense;
+    } else if (algo_type_str == "approximate") {
+        return AlgoType::approximate;
     } else {
         std::cout << "bad algo_type" << std::endl;
         exit(0);

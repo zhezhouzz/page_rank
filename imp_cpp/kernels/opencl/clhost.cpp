@@ -29,6 +29,29 @@ constexpr int CL_WORK_GROUP = 1;
 //     return size;
 // }
 
+static int approximate_mxv_(taco_tensor_t* y, taco_tensor_t* A, taco_tensor_t* x,
+                     std::vector<bool> if_active) {
+    double* __restrict y_vals = (double*)(y->vals);
+    int A1_dimension = (int)(A->dimensions[A->mode_ordering[0]]);
+    int A2_dimension = (int)(A->dimensions[A->mode_ordering[1]]);
+    double* __restrict A_vals = (double*)(A->vals);
+    double* __restrict x_vals = (double*)(x->vals);
+#pragma omp parallel for
+    for (int32_t iA = 0; iA < A1_dimension; iA++) {
+        double tj = 0;
+        if (if_active[iA]) {
+            for (int32_t jA = 0; jA < A2_dimension; jA++) {
+                int32_t pA2 = iA * A2_dimension + jA;
+                tj += A_vals[pA2] * x_vals[jA];
+            }
+        } else {
+            tj = x_vals[iA];
+        }
+        y_vals[iA] = tj;
+    }
+    return 0;
+}
+
 KernelOpencl::KernelOpencl() {
     ret_code = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
     CL_ERR_HANDLE;
@@ -47,8 +70,8 @@ KernelOpencl::KernelOpencl() {
 int KernelOpencl::upload(taco_tensor_t* c_tensor_y, taco_tensor_t* c_tensor_alpha,
                          taco_tensor_t* c_tensor_A, taco_tensor_t* c_tensor_x,
                          taco_tensor_t* c_tensor_z) {
-    x = c_tensor_x;
-    y = c_tensor_y;
+    _x = c_tensor_x;
+    _y = c_tensor_y;
     tensor_x_length = (int)(c_tensor_x->dimensions[c_tensor_x->mode_ordering[0]]);
     tensor_x_mem = std::make_shared<CppCLMem<double>>(
         context, command_queue, (double*)(c_tensor_x->vals), tensor_x_length, CL_MEM_READ_WRITE);
@@ -136,8 +159,8 @@ int KernelOpencl::page_rank_once(bool flag_x2y) {
 int KernelOpencl::upload_dense_mxv(taco_tensor_t* c_tensor_y, taco_tensor_t* c_tensor_alpha,
                                    taco_tensor_t* c_tensor_A, taco_tensor_t* c_tensor_x,
                                    taco_tensor_t* c_tensor_z) {
-    x = c_tensor_x;
-    y = c_tensor_y;
+    _x = c_tensor_x;
+    _y = c_tensor_y;
     tensor_x_length = (int)(c_tensor_x->dimensions[c_tensor_x->mode_ordering[0]]);
     tensor_x_mem = std::make_shared<CppCLMem<double>>(
         context, command_queue, (double*)(c_tensor_x->vals), tensor_x_length, CL_MEM_READ_WRITE);
@@ -191,6 +214,83 @@ int KernelOpencl::dense_mxv(bool flag_x2y) {
     return 0;
 }
 
+int KernelOpencl::upload_approximate_mxv(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A,
+                                       taco_tensor_t* x, taco_tensor_t* z) {
+    _y = y;
+    _A = A;
+    _x = x;
+    double* __restrict alpha_vals = (double*)(alpha->vals);
+    int A1_dimension = (int)(A->dimensions[A->mode_ordering[0]]);
+    int A2_dimension = (int)(A->dimensions[A->mode_ordering[1]]);
+    double* __restrict A_vals = (double*)(A->vals);
+    double* __restrict z_vals = (double*)(z->vals);
+
+    double remain_factor = (1 - alpha_vals[0]) / A1_dimension;
+    double outflow_factor = alpha_vals[0] / A1_dimension;
+
+    for (int32_t iA = 0; iA < A1_dimension; iA++) {
+        double tj = 0;
+        for (int32_t jA = 0; jA < A2_dimension; jA++) {
+            int32_t pA2 = iA * A2_dimension + jA;
+            A_vals[pA2] = A_vals[pA2] * outflow_factor + remain_factor;
+            FP_LOG(FP_LEVEL_INFO, "  A_vals[%d]=%f\n", pA2, A_vals[pA2]);
+        }
+    }
+    return 0;
+}
+
+int KernelOpencl::approximate_mxv(bool flag_x2y, std::vector<bool> if_active) {
+    if (flag_x2y) {
+        FP_LOG(FP_LEVEL_INFO, "flag_x2y = true\n");
+        return approximate_mxv_(_y, _A, _x, if_active);
+    } else {
+        return approximate_mxv_(_x, _A, _y, if_active);
+    }
+}
+
+int KernelOpencl::approximate_find_active(taco_tensor_t* x, taco_tensor_t* y,
+                                        std::vector<bool>& if_active, double eps, int stable_num) {
+    int x1_dimension = (int)(x->dimensions[x->mode_ordering[0]]);
+    assert(x1_dimension == if_active.size());
+    double* __restrict x_vals = (double*)(x->vals);
+    double* __restrict y_vals = (double*)(y->vals);
+    // TODO optimate this, save the calculation
+    for (int i = 0; i < x1_dimension; i++) {
+        if (std::abs(x_vals[i] - y_vals[i]) < eps) {
+            _history_active_table[i]++;
+        }
+        if (_history_active_table[i] >= stable_num) {
+            if_active[i] = true;
+        } else {
+            if_active[i] = false;
+        }
+    }
+    return 0;
+}
+
+int KernelOpencl::normalize(bool flag_x2y, std::vector<bool>& if_active) {
+    int x1_dimension = (int)(_x->dimensions[_x->mode_ordering[0]]);
+    assert(x1_dimension == if_active.size());
+    double* __restrict x_vals = (double*)(_x->vals);
+    double total_active_flow = 0;
+    double total_inactive_flow = 0;
+    // TODO optimate this, save the calculation
+    for (int i = 0; i < x1_dimension; i++) {
+        if(if_active[i]) {
+            total_active_flow += x_vals[i];
+        } else {
+            total_inactive_flow += x_vals[i];
+        }
+    }
+    double inactive_factor = (1 - total_active_flow)/total_inactive_flow;
+    for (int i = 0; i < x1_dimension; i++) {
+        if(not if_active[i]) {
+            x_vals[i] = x_vals[i] * inactive_factor;
+        }
+    }
+    return 0;
+}
+
 int KernelOpencl::download(bool flag_x2y, taco_tensor_t** c_tensor_x, taco_tensor_t** c_tensor_y) {
     ret_code = clFlush(command_queue->command_queue);
     CL_ERR_HANDLE;
@@ -198,21 +298,21 @@ int KernelOpencl::download(bool flag_x2y, taco_tensor_t** c_tensor_x, taco_tenso
     CL_ERR_HANDLE;
     if (flag_x2y) {
         clEnqueueReadBuffer(command_queue->command_queue, tensor_x_mem->mem, CL_TRUE, 0,
-                            tensor_x_length * sizeof(double), y->vals, 0, nullptr, nullptr);
+                            tensor_x_length * sizeof(double), _y->vals, 0, nullptr, nullptr);
         CL_ERR_HANDLE;
         clEnqueueReadBuffer(command_queue->command_queue, tensor_y_mem->mem, CL_TRUE, 0,
-                            tensor_x_length * sizeof(double), x->vals, 0, nullptr, nullptr);
+                            tensor_x_length * sizeof(double), _x->vals, 0, nullptr, nullptr);
         CL_ERR_HANDLE;
     } else {
         clEnqueueReadBuffer(command_queue->command_queue, tensor_y_mem->mem, CL_TRUE, 0,
-                            tensor_x_length * sizeof(double), y->vals, 0, nullptr, nullptr);
+                            tensor_x_length * sizeof(double), _y->vals, 0, nullptr, nullptr);
         CL_ERR_HANDLE;
         clEnqueueReadBuffer(command_queue->command_queue, tensor_x_mem->mem, CL_TRUE, 0,
-                            tensor_x_length * sizeof(double), x->vals, 0, nullptr, nullptr);
+                            tensor_x_length * sizeof(double), _x->vals, 0, nullptr, nullptr);
         CL_ERR_HANDLE;
     }
-    *c_tensor_x = x;
-    *c_tensor_y = y;
+    *c_tensor_x = _x;
+    *c_tensor_y = _y;
     return 0;
 }
 

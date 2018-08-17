@@ -106,8 +106,8 @@ def find_stationary(active_table, v_rank_new, v_rank, eps,
 def main():
     """main func of page rank"""
     # mm_page_map = sio.mmread("../data/5x5-7.mtx")
-    mm_page_map = sio.mmread("../data/10x10-20.mtx")
-    # mm_page_map = sio.mmread("../data/page_map.mtx")
+    # mm_page_map = sio.mmread("../data/10x10-20.mtx")
+    mm_page_map = sio.mmread("../data/page_map.mtx")
     print(mm_page_map.A)
     page_map = np.array(mm_page_map.A)
     morkov_mat = gen_markov_matrix(page_map, 0.85)

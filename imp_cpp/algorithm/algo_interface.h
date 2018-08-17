@@ -3,7 +3,7 @@
 #include <unordered_set>
 #include "kernels/kernel_interface.h"
 
-enum class AlgoType { sparse, dense };
+enum class AlgoType { sparse, dense, approximate };
 
 constexpr double PAGE_RANK_EPS = 1.0e-8;
 
