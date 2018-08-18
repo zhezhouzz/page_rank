@@ -201,10 +201,10 @@ int KernelOpencl::dense_mxv(bool flag_x2y) {
 }
 
 int KernelOpencl::gen_markov_matrix(taco_tensor_t* alpha, taco_tensor_t* A) {
-    double* __restrict alpha_vals = (double*)(alpha->vals);
+    double* alpha_vals = (double*)(alpha->vals);
     int A1_dimension = (int)(A->dimensions[A->mode_ordering[0]]);
     int A2_dimension = (int)(A->dimensions[A->mode_ordering[1]]);
-    double* __restrict A_vals = (double*)(A->vals);
+    double* A_vals = (double*)(A->vals);
 
     double remain_factor = (1 - alpha_vals[0]) / A1_dimension;
     double outflow_factor = alpha_vals[0];
@@ -214,7 +214,6 @@ int KernelOpencl::gen_markov_matrix(taco_tensor_t* alpha, taco_tensor_t* A) {
         for (int32_t jA = 0; jA < A2_dimension; jA++) {
             int32_t pA2 = iA * A2_dimension + jA;
             A_vals[pA2] = A_vals[pA2] * outflow_factor + remain_factor;
-            FP_LOG(FP_LEVEL_INFO, "  A_vals[%d]=%f\n", pA2, A_vals[pA2]);
         }
     }
     return 0;
@@ -301,7 +300,10 @@ int KernelOpencl::approximate_find_active(taco_tensor_t* x, taco_tensor_t* y,
     double* __restrict y_vals = (double*)(y->vals);
     // TODO optimate this, save the calculation
     for (int i = 0; i < x1_dimension; i++) {
-        if (std::abs(x_vals[i] - y_vals[i]) < eps) {
+        if (if_active[i] == false) {
+            continue;
+        }
+        if (std::abs(x_vals[i] - y_vals[i])/x_vals[i] < eps) {
             _history_active_table[i]++;
         }
         if (_history_active_table[i] >= stable_num) {

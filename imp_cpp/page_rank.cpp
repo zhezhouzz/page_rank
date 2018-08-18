@@ -60,11 +60,11 @@ int main(int argc, char* argv[]) {
     std::unordered_set<KernelType> kernels_set;
     kernels_set.insert(cmd_opt.kernel_type);
     auto algo_context = AlgoInterface::make(cmd_opt.algo_type, kernels_set);
-    algo_context->upload(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z);
+    algo_context->upload(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z, cmd_opt);
     {
         FPDebugTimer timer_compute(FP_LEVEL_ERROR, "final-compute", 0);
         algo_context->run();
         algo_context->download(&cur_result);
     }
-    print_vector_tensor(cur_result, FP_LEVEL_ERROR);
+    // print_vector_tensor(cur_result, FP_LEVEL_ERROR);
 }

@@ -34,6 +34,24 @@ static std::string data_set_handle(const std::string& data_set_path_str) {
     }
 }
 
+static double epsilon_handle(double epsilon_double) {
+    if (epsilon_double != 0) {
+        return epsilon_double;
+    } else {
+        std::cout << "bad epsilon" << std::endl;
+        exit(0);
+    }
+}
+
+static int inactive_tolerance_handle(int inactive_tolerance_path_int) {
+    if (inactive_tolerance_path_int != 0) {
+        return inactive_tolerance_path_int;
+    } else {
+        std::cout << "bad inactive_tolerance" << std::endl;
+        exit(0);
+    }
+}
+
 CmdOpt cmd_handle(int argc, char* argv[]) {
     CmdOpt ret_opt;
     try {
@@ -43,11 +61,16 @@ CmdOpt cmd_handle(int argc, char* argv[]) {
         std::string kernel_type_str;
         std::string algorithm_type_str;
         std::string data_set_path_str;
+        double epsilon_double;
+        int inactive_tolerance_int;
 
         options.add_options()("k,kernel", "kernel type",
                               cxxopts::value<std::string>(kernel_type_str))(
             "a,algorithm", "algorithm type", cxxopts::value<std::string>(algorithm_type_str))(
-            "d,data", "data set path", cxxopts::value<std::string>(data_set_path_str));
+            "d,data", "data set path", cxxopts::value<std::string>(data_set_path_str))(
+            "e,epsilon", "the accuracy of result", cxxopts::value<double>(epsilon_double))(
+            "t,inactive_tolerance", "inactive tolerance",
+            cxxopts::value<int>(inactive_tolerance_int));
 
         auto result = options.parse(argc, argv);
 
@@ -61,6 +84,10 @@ CmdOpt cmd_handle(int argc, char* argv[]) {
         ret_opt.algo_type = algo_type_handle(algorithm_type_str);
         std::cout << "d = " << data_set_path_str << std::endl;
         ret_opt.data_set_path = data_set_handle(data_set_path_str);
+        std::cout << "e = " << epsilon_double << std::endl;
+        ret_opt.eps = epsilon_handle(epsilon_double);
+        std::cout << "t = " << inactive_tolerance_int << std::endl;
+        ret_opt.inactive_tolerance = inactive_tolerance_handle(inactive_tolerance_int);
 
     } catch (const cxxopts::OptionException& e) {
         std::cout << "error parsing options: " << e.what() << std::endl;

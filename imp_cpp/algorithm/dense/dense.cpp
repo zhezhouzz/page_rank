@@ -14,9 +14,10 @@ AlgoDense::AlgoDense(std::unordered_set<KernelType> needed_kernels) {
 }
 
 int AlgoDense::upload(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
-                      taco_tensor_t* z) {
+                      taco_tensor_t* z, const CmdOpt& option) {
     auto default_kernel = kernels_hashmap.begin()->second;
     default_kernel->upload_dense_mxv(y, alpha, A, x, z);
+    _eps = option.eps;
     return 0;
 }
 
@@ -53,7 +54,7 @@ int AlgoDense::run() {
             print_vector_tensor(pre_result);
             print_vector_tensor(cur_result);
 #endif
-        } while (norm > PAGE_RANK_EPS);
+        } while (norm > _eps);
     }
 #ifndef FPOPT
     FP_LOG(FP_LEVEL_ERROR, "loop: %d times\n", times);

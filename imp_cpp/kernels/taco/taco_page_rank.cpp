@@ -185,7 +185,7 @@ int KernelTaco::approximate_find_active(taco_tensor_t* x, taco_tensor_t* y,
     double* __restrict y_vals = (double*)(y->vals);
     // TODO optimate this, save the calculation
     for (int i = 0; i < x1_dimension; i++) {
-        if (std::abs(x_vals[i] - y_vals[i]) < eps) {
+        if (std::abs(x_vals[i] - y_vals[i])/x_vals[i] < eps) {
             _history_active_table[i]++;
         }
         if (_history_active_table[i] >= stable_num) {

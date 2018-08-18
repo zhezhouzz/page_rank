@@ -14,10 +14,12 @@ AlgoApproximate::AlgoApproximate(std::unordered_set<KernelType> needed_kernels) 
 }
 
 int AlgoApproximate::upload(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A,
-                            taco_tensor_t* x, taco_tensor_t* z) {
+                            taco_tensor_t* x, taco_tensor_t* z, const CmdOpt& option) {
     auto default_kernel = kernels_hashmap.begin()->second;
     default_kernel->upload_approximate_mxv(y, alpha, A, x, z);
-    if_active.resize(5, true);
+    if_active.resize((int)(x->dimensions[x->mode_ordering[0]]), true);
+    _eps = option.eps;
+    _inactive_tolerance = option.inactive_tolerance;
     return 0;
 }
 
@@ -53,7 +55,7 @@ int AlgoApproximate::run() {
             {
                 FPDebugTimer timer_norm(FP_LEVEL_INFO, __FILE__, __LINE__);
                 ret_code = default_kernel->approximate_find_active(pre_result, cur_result,
-                                                                   if_active, 0.0001, 3);
+                                                                   if_active, _eps, _inactive_tolerance);
             }
 
             active_num = 0;
