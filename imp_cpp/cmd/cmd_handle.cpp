@@ -70,12 +70,12 @@ CmdOpt cmd_handle(int argc, char* argv[]) {
             "d,data", "data set path", cxxopts::value<std::string>(data_set_path_str))(
             "e,epsilon", "the accuracy of result", cxxopts::value<double>(epsilon_double))(
             "t,inactive_tolerance", "inactive tolerance",
-            cxxopts::value<int>(inactive_tolerance_int));
+            cxxopts::value<int>(inactive_tolerance_int))("h,help", "Print help");
 
         auto result = options.parse(argc, argv);
 
         if (result.count("help")) {
-            std::cout << "help" << std::endl;
+            std::cout << options.help({"", "Group"}) << std::endl;
             exit(0);
         }
         std::cout << "k = " << kernel_type_str << std::endl;
