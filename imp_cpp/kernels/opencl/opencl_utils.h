@@ -12,11 +12,12 @@
 #include "cl_err_handle.h"
 #include "debug/utils_debug.h"
 
-#define CL_ERROR_HANDLE_                                                               \
-    do {                                                                               \
-        if (ret_code != 0) {                                                           \
-            std::cout << "[line " << __LINE__ << "] error: " << ret_code << std::endl; \
-        }                                                                              \
+#define CL_ERROR_HANDLE_                                                                          \
+    do {                                                                                          \
+        if (ret_code != 0) {                                                                      \
+            std::cout << "[" << __FILE__ ":" << __LINE__ << "] error: " << ret_code << std::endl; \
+            exit(0);                                                                              \
+        }                                                                                         \
     } while (0)
 
 int load_file(const char* file_path, char** source_str);

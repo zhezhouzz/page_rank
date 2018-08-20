@@ -66,5 +66,5 @@ int main(int argc, char* argv[]) {
         algo_context->run();
         algo_context->download(&cur_result);
     }
-    // print_vector_tensor(cur_result, FP_LEVEL_ERROR);
+    print_vector_tensor(cur_result, FP_LEVEL_ERROR);
 }

@@ -176,7 +176,7 @@ int KernelOpencl::upload_dense_mxv(taco_tensor_t* c_tensor_y, taco_tensor_t* c_t
 
 int KernelOpencl::dense_mxv(bool flag_x2y) {
     size_t global_work_size[] = {static_cast<size_t>(CL_WORK_GROUP * tensor_x_length)};
-    FP_LOG(FP_LEVEL_INFO, "global_work_size = %d\n", CL_WORK_GROUP);
+    FP_LOG(FP_LEVEL_INFO, "global_work_size = %dx%d\n", CL_WORK_GROUP, tensor_x_length);
     size_t local_work_size[] = {CL_WORK_GROUP};
     if (flag_x2y) {
         ret_code = clSetKernelArg(dense_mxv_kernel->kernel, 3, sizeof(cl_mem), &tensor_x_mem->mem);

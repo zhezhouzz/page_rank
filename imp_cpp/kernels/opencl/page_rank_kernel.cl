@@ -20,16 +20,19 @@ __kernel void sparse_mxv(uint num_rows, __global uint* row_col_offset, __global 
 __kernel void dense_mxv(uint num_rows, __global double* A, __local double* tmp_vals,
                         __global double* x, __global double* y) {
     int thread_id = get_global_id(0);
+    int local_id = get_local_id(0);
     int row = thread_id;
 
-    tmp_vals[thread_id] = 0;
-    int offset = thread_id * num_rows;
-    int num_col = num_rows;
-    for (int jj = 0; jj < num_col; jj += 1) {
-        tmp_vals[thread_id] += A[offset + jj] * x[jj];
-    }
+    if (thread_id < num_rows) {
+        tmp_vals[local_id] = 0;
+        int offset = thread_id * num_rows;
+        int num_col = num_rows;
+        for (int jj = 0; jj < num_col; jj += 1) {
+            tmp_vals[local_id] += A[offset + jj] * x[jj];
+        }
 
-    y[row] = tmp_vals[thread_id];
+        y[row] = tmp_vals[local_id];
+    }
     return;
 }
 
@@ -37,15 +40,16 @@ __kernel void approximate_mxv(uint num_rows, __global double* A, __local double*
                               __global double* x, __global double* y, __global int* if_active) {
     int thread_id = get_global_id(0);
     int row = thread_id;
+    int local_id = get_local_id(0);
 
-    tmp_vals[thread_id] = 0;
+    tmp_vals[local_id] = 0;
     int offset = thread_id * num_rows;
     int num_col = num_rows;
     if (if_active[thread_id] != 0) {
         for (int jj = 0; jj < num_col; jj += 1) {
-            tmp_vals[thread_id] += A[offset + jj] * x[jj];
+            tmp_vals[local_id] += A[offset + jj] * x[jj];
         }
-        y[row] = tmp_vals[thread_id];
+        y[row] = tmp_vals[local_id];
     } else {
         y[row] = x[row];
     }
