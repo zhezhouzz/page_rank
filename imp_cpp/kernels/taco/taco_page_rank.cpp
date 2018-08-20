@@ -32,11 +32,11 @@ static int taco_page_rank_(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t
             for (int32_t pA2 = A2_pos[pA1]; pA2 < A2_pos[(pA1 + 1)]; pA2++) {
                 int32_t jA = A2_coord[pA2];
                 tj += A_vals[pA2] * x_vals[jA];
-                FP_LOG(FP_LEVEL_INFO, "  %fx%f=%f\n", A_vals[pA2], x_vals[jA],
-                       A_vals[pA2] * x_vals[jA]);
+                // FP_LOG(FP_LEVEL_INFO, "  %fx%f=%f\n", A_vals[pA2], x_vals[jA],
+                //        A_vals[pA2] * x_vals[jA]);
             }
             y_vals[py1] = alpha_vals[0] * tj + z_vals[pz1];
-            FP_LOG(FP_LEVEL_INFO, "%fx%f + %f=%f\n", alpha_vals[0], tj, z_vals[pz1], y_vals[py1]);
+            // FP_LOG(FP_LEVEL_INFO, "%fx%f + %f=%f\n", alpha_vals[0], tj, z_vals[pz1], y_vals[py1]);
         } else {
             y_vals[py1] = z_vals[pz1];
         }
@@ -67,11 +67,11 @@ static int dense_mxv_(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, 
         for (int32_t jA = 0; jA < A2_dimension; jA++) {
             int32_t pA2 = iA * A2_dimension + jA;
             tj += A_vals[pA2] * x_vals[jA];
-            FP_LOG(FP_LEVEL_INFO, "  %fx%f=%f\n", A_vals[pA2], x_vals[jA],
-                   A_vals[pA2] * x_vals[jA]);
+            // FP_LOG(FP_LEVEL_INFO, "  %fx%f=%f\n", A_vals[pA2], x_vals[jA],
+            //        A_vals[pA2] * x_vals[jA]);
         }
         y_vals[iA] = alpha_vals[0] * tj + z_vals[iA];
-        FP_LOG(FP_LEVEL_INFO, "%fx%f + %f=%f\n", alpha_vals[0], tj, z_vals[iA], y_vals[iA]);
+        // FP_LOG(FP_LEVEL_INFO, "%fx%f + %f=%f\n", alpha_vals[0], tj, z_vals[iA], y_vals[iA]);
     }
     return 0;
 }
@@ -158,7 +158,7 @@ int KernelTaco::upload_approximate_mxv(taco_tensor_t* y, taco_tensor_t* alpha, t
         for (int32_t jA = 0; jA < A2_dimension; jA++) {
             int32_t pA2 = iA * A2_dimension + jA;
             A_vals[pA2] = A_vals[pA2] * outflow_factor + remain_factor;
-            FP_LOG(FP_LEVEL_INFO, "  A_vals[%d]=%f\n", pA2, A_vals[pA2]);
+            // FP_LOG(FP_LEVEL_INFO, "  A_vals[%d]=%f\n", pA2, A_vals[pA2]);
         }
     }
 

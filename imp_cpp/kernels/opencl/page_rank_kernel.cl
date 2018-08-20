@@ -18,7 +18,7 @@ __kernel void sparse_mxv(uint num_rows, __global uint* row_col_offset, __global 
 }
 
 __kernel void dense_mxv(uint num_rows, __global double* A, __local double* tmp_vals,
-                        __global double* x, __global double* y, __global double* z, double alpha) {
+                        __global double* x, __global double* y) {
     int thread_id = get_global_id(0);
     int row = thread_id;
 
@@ -29,7 +29,7 @@ __kernel void dense_mxv(uint num_rows, __global double* A, __local double* tmp_v
         tmp_vals[thread_id] += A[offset + jj] * x[jj];
     }
 
-    y[row] = alpha * tmp_vals[thread_id] + z[row];
+    y[row] = tmp_vals[thread_id];
     return;
 }
 
