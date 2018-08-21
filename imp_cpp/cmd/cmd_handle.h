@@ -10,6 +10,7 @@ typedef struct {
     std::string data_set_path;
     double eps;
     int inactive_tolerance;
+    double terminate_active_rate;
 } CmdOpt;
 
 CmdOpt cmd_handle(int argc, char* argv[]);

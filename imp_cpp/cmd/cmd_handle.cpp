@@ -52,6 +52,15 @@ static int inactive_tolerance_handle(int inactive_tolerance_path_int) {
     }
 }
 
+static double terminate_active_rate_handle(double terminate_active_rate_double) {
+    if (terminate_active_rate_double != 0) {
+        return terminate_active_rate_double;
+    } else {
+        std::cout << "bad terminate_active_rate" << std::endl;
+        exit(0);
+    }
+}
+
 CmdOpt cmd_handle(int argc, char* argv[]) {
     CmdOpt ret_opt;
     try {
@@ -61,8 +70,9 @@ CmdOpt cmd_handle(int argc, char* argv[]) {
         std::string kernel_type_str;
         std::string algorithm_type_str;
         std::string data_set_path_str;
-        double epsilon_double;
-        int inactive_tolerance_int;
+        double epsilon_double = 0;
+        int inactive_tolerance_int = 0;
+        double terminate_active_rate_double = 0;
 
         options.add_options()("k,kernel", "kernel type",
                               cxxopts::value<std::string>(kernel_type_str))(
@@ -70,7 +80,9 @@ CmdOpt cmd_handle(int argc, char* argv[]) {
             "d,data", "data set path", cxxopts::value<std::string>(data_set_path_str))(
             "e,epsilon", "the accuracy of result", cxxopts::value<double>(epsilon_double))(
             "t,inactive_tolerance", "inactive tolerance",
-            cxxopts::value<int>(inactive_tolerance_int))("h,help", "Print help");
+            cxxopts::value<int>(inactive_tolerance_int))(
+            "r,terminate_active_rate", "terminate active rate",
+            cxxopts::value<double>(terminate_active_rate_double))("h,help", "Print help");
 
         auto result = options.parse(argc, argv);
 
@@ -88,6 +100,8 @@ CmdOpt cmd_handle(int argc, char* argv[]) {
         ret_opt.eps = epsilon_handle(epsilon_double);
         std::cout << "t = " << inactive_tolerance_int << std::endl;
         ret_opt.inactive_tolerance = inactive_tolerance_handle(inactive_tolerance_int);
+        std::cout << "r = " << terminate_active_rate_double << std::endl;
+        ret_opt.terminate_active_rate = terminate_active_rate_handle(terminate_active_rate_double);
 
     } catch (const cxxopts::OptionException& e) {
         std::cout << "error parsing options: " << e.what() << std::endl;

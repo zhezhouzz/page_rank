@@ -16,4 +16,6 @@ public:
     std::vector<bool> if_active;
     double _eps;
     int _inactive_tolerance;
+    double _terminate_active_rate;
+    int _terminate_min;
 };

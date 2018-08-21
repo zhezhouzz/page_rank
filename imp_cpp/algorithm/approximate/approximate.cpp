@@ -20,6 +20,9 @@ int AlgoApproximate::upload(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_
     if_active.resize((int)(x->dimensions[x->mode_ordering[0]]), true);
     _eps = option.eps;
     _inactive_tolerance = option.inactive_tolerance;
+    _terminate_active_rate = option.terminate_active_rate;
+    _terminate_min =
+        static_cast<int>((int)(x->dimensions[x->mode_ordering[0]]) * _terminate_active_rate);
     return 0;
 }
 
@@ -54,13 +57,13 @@ int AlgoApproximate::run() {
             FP_LOG(FP_LEVEL_INFO, "[find_active]\n");
             {
                 FPDebugTimer timer_norm(FP_LEVEL_INFO, __FILE__, __LINE__);
-                ret_code = default_kernel->approximate_find_active(pre_result, cur_result,
-                                                                   if_active, _eps, _inactive_tolerance);
+                ret_code = default_kernel->approximate_find_active(
+                    pre_result, cur_result, if_active, _eps, _inactive_tolerance);
             }
 
             active_num = 0;
-            for(const auto& active:if_active) {
-                if(active) {
+            for (const auto& active : if_active) {
+                if (active) {
                     active_num++;
                 }
             }
@@ -69,10 +72,10 @@ int AlgoApproximate::run() {
 #ifndef FPOPT
             times++;
             FP_LOG(FP_LEVEL_INFO, "<loop %d>\n", times);
-            print_vector_tensor(pre_result);
-            print_vector_tensor(cur_result);
+            // print_vector_tensor(pre_result);
+            // print_vector_tensor(cur_result);
 #endif
-        } while (active_num > 0);
+        } while (active_num > _terminate_min);
     }
 #ifndef FPOPT
     FP_LOG(FP_LEVEL_ERROR, "loop: %d times\n", times);
