@@ -20,6 +20,10 @@ using namespace taco;
 int main(int argc, char* argv[]) {
     int ret_code = 0;
     CmdOpt cmd_opt = cmd_handle(argc, argv);
+    DEFAULT_DEBUG;
+    double* test  = new double[79469301409];
+    delete[] test;
+    DEFAULT_DEBUG;
 
     /* init tensor */
     Format csr({Sparse, Sparse});
