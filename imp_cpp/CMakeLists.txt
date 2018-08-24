@@ -3,6 +3,7 @@ project (megface-origin-test)
 
 # commandline option
 SET(CUR_DEBUG_LEVEL "0" CACHE STRING "Build the project using debugging code")
+option(USE_OpenMP "use openmp" OFF)
 add_definitions(-DCUR_DEBUG_LEVEL=${CUR_DEBUG_LEVEL})
 
 set (CMAKE_CXX_FLAGS "-std=c++14 ")

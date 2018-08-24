@@ -36,7 +36,8 @@ static int taco_page_rank_(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t
                 //        A_vals[pA2] * x_vals[jA]);
             }
             y_vals[py1] = alpha_vals[0] * tj + z_vals[pz1];
-            // FP_LOG(FP_LEVEL_INFO, "%fx%f + %f=%f\n", alpha_vals[0], tj, z_vals[pz1], y_vals[py1]);
+            // FP_LOG(FP_LEVEL_INFO, "%fx%f + %f=%f\n", alpha_vals[0], tj, z_vals[pz1],
+            // y_vals[py1]);
         } else {
             y_vals[py1] = z_vals[pz1];
         }
@@ -152,7 +153,7 @@ int KernelTaco::upload_approximate_mxv(taco_tensor_t* y, taco_tensor_t* alpha, t
 
     double remain_factor = (1 - alpha_vals[0]) / A1_dimension;
     double outflow_factor = alpha_vals[0];
-
+#pragma omp parallel for
     for (int32_t iA = 0; iA < A1_dimension; iA++) {
         double tj = 0;
         for (int32_t jA = 0; jA < A2_dimension; jA++) {
@@ -185,7 +186,7 @@ int KernelTaco::approximate_find_active(taco_tensor_t* x, taco_tensor_t* y,
     double* __restrict y_vals = (double*)(y->vals);
     // TODO optimate this, save the calculation
     for (int i = 0; i < x1_dimension; i++) {
-        if (std::abs(x_vals[i] - y_vals[i])/x_vals[i] < eps) {
+        if (std::abs(x_vals[i] - y_vals[i]) / x_vals[i] < eps) {
             _history_active_table[i]++;
         }
         if (_history_active_table[i] >= stable_num) {
