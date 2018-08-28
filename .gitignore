@@ -1,6 +1,8 @@
 .DS_Store
 *.out
-imp_cpp/kernels/taco/temp/*
+*.o
+imp_cpp/kernels/plain_cpu/temp/*
 *.mtx
 *.tns
 */build/*
+*.vector
