@@ -13,16 +13,16 @@ AlgoApproximate::AlgoApproximate(std::unordered_set<KernelType> needed_kernels) 
     return;
 }
 
-int AlgoApproximate::upload(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A,
-                            taco_tensor_t* x, taco_tensor_t* z, const CmdOpt& option) {
+int AlgoApproximate::upload(std::shared_ptr<Tensor> y, std::shared_ptr<Tensor> alpha, std::shared_ptr<Tensor> A,
+                            std::shared_ptr<Tensor> x, std::shared_ptr<Tensor> z, const CmdOpt& option) {
     auto default_kernel = kernels_hashmap.begin()->second;
     default_kernel->upload_approximate_mxv(y, alpha, A, x, z);
-    if_active.resize((int)(x->dimensions[x->mode_ordering[0]]), true);
+    if_active.resize((int)(x->dimensions[0]), true);
     _eps = option.eps;
     _inactive_tolerance = option.inactive_tolerance;
     _terminate_active_rate = option.terminate_active_rate;
     _terminate_min =
-        static_cast<int>((int)(x->dimensions[x->mode_ordering[0]]) * _terminate_active_rate);
+        static_cast<int>((int)(x->dimensions[0]) * _terminate_active_rate);
     return 0;
 }
 
@@ -51,7 +51,7 @@ int AlgoApproximate::run() {
                 FPDebugTimer timer_compute(FP_LEVEL_INFO, __FILE__, __LINE__);
                 ret_code = default_kernel->approximate_mxv(flag_x2y, if_active);
                 ERROR_HANDLE_;
-                ret_code = default_kernel->download(flag_x2y, &pre_result, &cur_result);
+                ret_code = default_kernel->download(flag_x2y, pre_result, cur_result);
             }
 
             FP_LOG(FP_LEVEL_INFO, "[find_active]\n");
@@ -72,8 +72,8 @@ int AlgoApproximate::run() {
 #ifndef FPOPT
             times++;
             FP_LOG(FP_LEVEL_INFO, "<loop %d>\n", times);
-            // print_vector_tensor(pre_result);
-            // print_vector_tensor(cur_result);
+            // pre_result->print();
+            // cur_result->print();
 #endif
         } while (active_num > _terminate_min);
     }
@@ -83,7 +83,7 @@ int AlgoApproximate::run() {
     return 0;
 }
 
-int AlgoApproximate::download(taco_tensor_t** result) const {
-    *result = cur_result;
+int AlgoApproximate::download(std::shared_ptr<Tensor>& result) const {
+    result = cur_result;
     return 0;
 }

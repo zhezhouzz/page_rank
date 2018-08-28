@@ -1,8 +1,3 @@
-// On Linux and MacOS, you can compile and run this program like so:
-//   g++ -std=c++11 -O3 -DNDEBUG -DTACO -I ../../include -L../../build/lib -ltaco spmv.cpp -o spmv
-//   LD_LIBRARY_PATH=../../build/lib ./spmv
-
-#include <taco.h>
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -11,54 +6,42 @@
 #include "algorithm/algo_interface.h"
 #include "cmd/cmd_handle.h"
 #include "debug/utils_debug.h"
-#include "kernels/kernel_interface.h"
-#include "utils/utils.h"
 #include "default_config.h"
-
-using namespace taco;
+#include "kernels/kernel_interface.h"
+#include "tensor/tensor.h"
+#include "utils/utils.h"
 
 int main(int argc, char* argv[]) {
     int ret_code = 0;
     CmdOpt cmd_opt = cmd_handle(argc, argv);
-    DEFAULT_DEBUG;
-    double* test  = new double[79469301409];
-    delete[] test;
-    DEFAULT_DEBUG;
 
     /* init tensor */
-    Format csr({Sparse, Sparse});
-    Format dv({Dense});
-    Tensor<double> A = read(cmd_opt.data_set_path.c_str(), csr);
+    std::shared_ptr<Tensor> c_tensor_alpha = std::make_shared<Tensor>(PAGE_RANK_D);
+    std::shared_ptr<Tensor> c_tensor_A = std::make_shared<Tensor>(
+        (cmd_opt.algo_type == AlgoType::sparse) ? TENSOR_MODE::TENSOR_MODE_SPARSE
+                                                  : TENSOR_MODE::TENSOR_MODE_DENSE,
+        cmd_opt.data_set_path);
     FP_LOG(FP_LEVEL_INFO, "[LOAD FINISHED]\n");
 
-    Tensor<double> x({A.getDimension(1)}, dv);
-    int length = x.getDimension(0);
+    int length = c_tensor_A->dimensions[0];
+    std::shared_ptr<Tensor> c_tensor_x =
+        std::make_shared<Tensor>(TENSOR_MODE::TENSOR_MODE_DENSE, std::vector<int>(1, length));
     for (int i = 0; i < length; ++i) {
-        x.insert({i}, (double)(PAGE_RANK_MAX / length));
+        reinterpret_cast<double*>(c_tensor_x->vals)[i] = (double)(PAGE_RANK_MAX / length);
     }
-    x.pack();
-
-    Tensor<double> alpha(PAGE_RANK_D);
-
-    Tensor<double> z({A.getDimension(0)}, dv);
-    for (int i = 0; i < z.getDimension(0); ++i) {
-        z.insert({i}, (double)((PAGE_RANK_MAX - PAGE_RANK_D) / length));
+    std::shared_ptr<Tensor> c_tensor_z =
+        std::make_shared<Tensor>(TENSOR_MODE::TENSOR_MODE_DENSE, std::vector<int>(1, length));
+    for (int i = 0; i < length; ++i) {
+        reinterpret_cast<double*>(c_tensor_z->vals)[i] =
+            (double)((PAGE_RANK_MAX - PAGE_RANK_D) / length);
     }
-    z.pack();
+    std::shared_ptr<Tensor> c_tensor_y =
+        std::make_shared<Tensor>(TENSOR_MODE::TENSOR_MODE_DENSE, std::vector<int>(1, length));
 
-    Tensor<double> y({A.getDimension(0)}, dv);
+    c_tensor_x->print();
+    c_tensor_z->print();
 
-    taco_tensor_t* c_tensor_alpha = alpha.getTacoTensorT();
-    taco_tensor_t* c_tensor_A = A.getTacoTensorT();
-    taco_tensor_t* c_tensor_x = x.getTacoTensorT();
-    taco_tensor_t* c_tensor_z = z.getTacoTensorT();
-    taco_tensor_t* c_tensor_y = y.getTacoTensorT();
-
-    FP_LOG(FP_LEVEL_INFO, "[assemble]\n");
-    ret_code = assemble(c_tensor_y, c_tensor_alpha, c_tensor_A, c_tensor_x, c_tensor_z);
-    ERROR_HANDLE_;
-
-    taco_tensor_t* cur_result = nullptr;
+    std::shared_ptr<Tensor> cur_result = nullptr;
 
     /* algorithm start */
     std::unordered_set<KernelType> kernels_set;
@@ -68,7 +51,9 @@ int main(int argc, char* argv[]) {
     {
         FPDebugTimer timer_compute(FP_LEVEL_ERROR, "final-compute", 0);
         algo_context->run();
-        algo_context->download(&cur_result);
+        algo_context->download(cur_result);
     }
-    print_vector_tensor(cur_result, FP_LEVEL_ERROR);
+    cur_result->print(FP_LEVEL_ERROR);
+    cur_result->save("result.vector");
+    return 0;
 }

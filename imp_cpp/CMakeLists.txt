@@ -12,6 +12,7 @@ set (CMAKE_CXX_FLAGS "-std=c++14 ")
 include_directories ("${PROJECT_SOURCE_DIR}")
 
 # start sub CMakeLists.txt
+add_subdirectory (tensor)
 add_subdirectory (cmd)
 add_subdirectory (debug)
 add_subdirectory (utils)

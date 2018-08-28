@@ -1,4 +1,4 @@
-add_subdirectory (taco)
+add_subdirectory (plain_cpu)
 add_subdirectory (opencl)
 
 file(GLOB RAW_SOURCES
@@ -6,4 +6,4 @@ file(GLOB RAW_SOURCES
 )
 
 add_library(kernels ${RAW_SOURCES})
-target_link_libraries (kernels taco_kernel opencl_kernel)
+target_link_libraries (kernels plain_cpu_kernel opencl_kernel)

@@ -2,6 +2,7 @@
 #include <fstream>
 #include "debug/utils_debug.h"
 #include "default_config.h"
+#include <cmath>
 
 using namespace std;
 
@@ -14,11 +15,11 @@ constexpr int CL_WORK_GROUP = 1;
         }                                                                                  \
     } while (0)
 
-static int approximate_mxv_(taco_tensor_t* y, taco_tensor_t* A, taco_tensor_t* x,
+static int approximate_mxv_(std::shared_ptr<Tensor> y, std::shared_ptr<Tensor> A, std::shared_ptr<Tensor> x,
                             std::vector<bool> if_active) {
     double* __restrict y_vals = (double*)(y->vals);
-    int A1_dimension = (int)(A->dimensions[A->mode_ordering[0]]);
-    int A2_dimension = (int)(A->dimensions[A->mode_ordering[1]]);
+    int A1_dimension = (int)(A->dimensions[0]);
+    int A2_dimension = (int)(A->dimensions[1]);
     double* __restrict A_vals = (double*)(A->vals);
     double* __restrict x_vals = (double*)(x->vals);
 #pragma omp parallel for
@@ -48,24 +49,23 @@ KernelOpencl::KernelOpencl() {
     return;
 }
 
-int KernelOpencl::upload(taco_tensor_t* c_tensor_y, taco_tensor_t* c_tensor_alpha,
-                         taco_tensor_t* c_tensor_A, taco_tensor_t* c_tensor_x,
-                         taco_tensor_t* c_tensor_z) {
+int KernelOpencl::upload(std::shared_ptr<Tensor> c_tensor_y, std::shared_ptr<Tensor> c_tensor_alpha,
+                         std::shared_ptr<Tensor> c_tensor_A, std::shared_ptr<Tensor> c_tensor_x,
+                         std::shared_ptr<Tensor> c_tensor_z) {
     _x = c_tensor_x;
     _y = c_tensor_y;
-    tensor_x_length = (int)(c_tensor_x->dimensions[c_tensor_x->mode_ordering[0]]);
+    tensor_x_length = (int)(c_tensor_x->dimensions[0]);
     tensor_x_mem = std::make_shared<CppCLMem<double>>(
         context, command_queue, (double*)(c_tensor_x->vals), tensor_x_length, CL_MEM_READ_WRITE);
 
-    int tensor_z_length = (int)(c_tensor_z->dimensions[c_tensor_z->mode_ordering[0]]);
+    int tensor_z_length = (int)(c_tensor_z->dimensions[0]);
     tensor_z_mem = std::make_shared<CppCLMem<double>>(
         context, command_queue, (double*)(c_tensor_z->vals), tensor_z_length, CL_MEM_READ_ONLY);
 
-    int* A1_pos = (int*)(c_tensor_A->indices[0][0]);
-    int* A2_pos = (int*)(c_tensor_A->indices[1][0]);
-    A2_pos_length = A1_pos[1] + 1;
-    int* A2_coord = (int*)(c_tensor_A->indices[1][1]);
-    A2_coord_length = A2_pos[A2_pos_length - 1];
+    const int* A2_pos = (int*)(c_tensor_A->indices.data());
+    A2_pos_length = (int)(c_tensor_A->indices.size());
+    int* A2_coord = (int*)(c_tensor_A->cols);
+    A2_coord_length = c_tensor_A->unit_num;
     double* A_vals = (double*)(c_tensor_A->vals);
     A_vals_length = A2_coord_length;
     FP_LOG(FP_LEVEL_INFO, "A2_pos_length = %d\n", A2_pos_length);
@@ -88,7 +88,7 @@ int KernelOpencl::upload(taco_tensor_t* c_tensor_y, taco_tensor_t* c_tensor_alph
     tensor_A_vals_mem = std::make_shared<CppCLMem<double>>(context, command_queue, A_vals,
                                                            A_vals_length, CL_MEM_READ_ONLY);
 
-    int tensor_y_length = (int)(c_tensor_y->dimensions[c_tensor_y->mode_ordering[0]]);
+    int tensor_y_length = (int)(c_tensor_y->dimensions[0]);
     tensor_y_mem = std::make_shared<CppCLMem<double>>(context, command_queue, nullptr,
                                                       tensor_y_length, CL_MEM_READ_WRITE);
 
@@ -138,28 +138,28 @@ int KernelOpencl::page_rank_once(bool flag_x2y) {
     return 0;
 }
 
-int KernelOpencl::upload_dense_mxv(taco_tensor_t* c_tensor_y, taco_tensor_t* c_tensor_alpha,
-                                   taco_tensor_t* c_tensor_A, taco_tensor_t* c_tensor_x,
-                                   taco_tensor_t* c_tensor_z) {
+int KernelOpencl::upload_dense_mxv(std::shared_ptr<Tensor> c_tensor_y, std::shared_ptr<Tensor> c_tensor_alpha,
+                                   std::shared_ptr<Tensor> c_tensor_A, std::shared_ptr<Tensor> c_tensor_x,
+                                   std::shared_ptr<Tensor> c_tensor_z) {
     _x = c_tensor_x;
     _y = c_tensor_y;
     _A = c_tensor_A;
-    tensor_x_length = (int)(c_tensor_x->dimensions[c_tensor_x->mode_ordering[0]]);
+    tensor_x_length = (int)(c_tensor_x->dimensions[0]);
     tensor_x_mem = std::make_shared<CppCLMem<double>>(
         context, command_queue, (double*)(c_tensor_x->vals), tensor_x_length, CL_MEM_READ_WRITE);
 
-    int tensor_z_length = (int)(c_tensor_z->dimensions[c_tensor_z->mode_ordering[0]]);
+    int tensor_z_length = (int)(c_tensor_z->dimensions[0]);
     tensor_z_mem = std::make_shared<CppCLMem<double>>(
         context, command_queue, (double*)(c_tensor_z->vals), tensor_z_length, CL_MEM_READ_ONLY);
 
     gen_markov_matrix(c_tensor_alpha, _A);
-    int A1_dimension = (int)(_A->dimensions[_A->mode_ordering[0]]);
-    int A2_dimension = (int)(_A->dimensions[_A->mode_ordering[1]]);
+    int A1_dimension = (int)(_A->dimensions[0]);
+    int A2_dimension = (int)(_A->dimensions[1]);
     tensor_A_vals_mem =
         std::make_shared<CppCLMem<double>>(context, command_queue, (double*)(_A->vals),
                                            A1_dimension * A2_dimension, CL_MEM_READ_WRITE);
 
-    int tensor_y_length = (int)(c_tensor_y->dimensions[c_tensor_y->mode_ordering[0]]);
+    int tensor_y_length = (int)(c_tensor_y->dimensions[0]);
     tensor_y_mem = std::make_shared<CppCLMem<double>>(context, command_queue, nullptr,
                                                       tensor_y_length, CL_MEM_READ_WRITE);
 
@@ -197,10 +197,10 @@ int KernelOpencl::dense_mxv(bool flag_x2y) {
     return 0;
 }
 
-int KernelOpencl::gen_markov_matrix(taco_tensor_t* alpha, taco_tensor_t* A) {
+int KernelOpencl::gen_markov_matrix(std::shared_ptr<Tensor> alpha, std::shared_ptr<Tensor> A) {
     double* alpha_vals = (double*)(alpha->vals);
-    int A1_dimension = (int)(A->dimensions[A->mode_ordering[0]]);
-    int A2_dimension = (int)(A->dimensions[A->mode_ordering[1]]);
+    int A1_dimension = (int)(A->dimensions[0]);
+    int A2_dimension = (int)(A->dimensions[1]);
     double* A_vals = (double*)(A->vals);
 
     double remain_factor = (1 - alpha_vals[0]) / A1_dimension;
@@ -216,24 +216,24 @@ int KernelOpencl::gen_markov_matrix(taco_tensor_t* alpha, taco_tensor_t* A) {
     return 0;
 }
 
-int KernelOpencl::upload_approximate_mxv(taco_tensor_t* c_tensor_y, taco_tensor_t* c_tensor_alpha,
-                                         taco_tensor_t* c_tensor_A, taco_tensor_t* c_tensor_x,
-                                         taco_tensor_t* c_tensor_z) {
+int KernelOpencl::upload_approximate_mxv(std::shared_ptr<Tensor> c_tensor_y, std::shared_ptr<Tensor> c_tensor_alpha,
+                                         std::shared_ptr<Tensor> c_tensor_A, std::shared_ptr<Tensor> c_tensor_x,
+                                         std::shared_ptr<Tensor> c_tensor_z) {
     _y = c_tensor_y;
     _A = c_tensor_A;
     _x = c_tensor_x;
 
-    tensor_x_length = (int)(c_tensor_x->dimensions[c_tensor_x->mode_ordering[0]]);
+    tensor_x_length = (int)(c_tensor_x->dimensions[0]);
     tensor_x_mem = std::make_shared<CppCLMem<double>>(
         context, command_queue, (double*)(c_tensor_x->vals), tensor_x_length, CL_MEM_READ_WRITE);
 
-    int tensor_y_length = (int)(c_tensor_y->dimensions[c_tensor_y->mode_ordering[0]]);
+    int tensor_y_length = (int)(c_tensor_y->dimensions[0]);
     tensor_y_mem = std::make_shared<CppCLMem<double>>(context, command_queue, nullptr,
                                                       tensor_y_length, CL_MEM_READ_WRITE);
 
     gen_markov_matrix(c_tensor_alpha, _A);
-    int A1_dimension = (int)(_A->dimensions[_A->mode_ordering[0]]);
-    int A2_dimension = (int)(_A->dimensions[_A->mode_ordering[1]]);
+    int A1_dimension = (int)(_A->dimensions[0]);
+    int A2_dimension = (int)(_A->dimensions[1]);
     tensor_A_vals_mem =
         std::make_shared<CppCLMem<double>>(context, command_queue, (double*)(_A->vals),
                                            A1_dimension * A2_dimension, CL_MEM_READ_WRITE);
@@ -289,10 +289,10 @@ int KernelOpencl::approximate_mxv(bool flag_x2y, std::vector<bool> if_active) {
     return 0;
 }
 
-int KernelOpencl::approximate_find_active(taco_tensor_t* x, taco_tensor_t* y,
+int KernelOpencl::approximate_find_active(std::shared_ptr<Tensor> x, std::shared_ptr<Tensor> y,
                                           std::vector<bool>& if_active, double eps,
                                           int stable_num) {
-    int x1_dimension = (int)(x->dimensions[x->mode_ordering[0]]);
+    int x1_dimension = (int)(x->dimensions[0]);
     assert(x1_dimension == if_active.size());
     double* __restrict x_vals = (double*)(x->vals);
     double* __restrict y_vals = (double*)(y->vals);
@@ -301,7 +301,7 @@ int KernelOpencl::approximate_find_active(taco_tensor_t* x, taco_tensor_t* y,
         if (if_active[i] == false) {
             continue;
         }
-        if (std::abs(x_vals[i] - y_vals[i]) / x_vals[i] < eps) {
+        if (std::fabs(x_vals[i] - y_vals[i]) / x_vals[i] < eps) {
             _history_active_table[i]++;
         }
         if (_history_active_table[i] >= stable_num) {
@@ -315,7 +315,7 @@ int KernelOpencl::approximate_find_active(taco_tensor_t* x, taco_tensor_t* y,
 
 int KernelOpencl::normalize(bool flag_x2y, std::vector<bool>& if_active) {
     if (flag_x2y) {
-        int y1_dimension = (int)(_y->dimensions[_y->mode_ordering[0]]);
+        int y1_dimension = (int)(_y->dimensions[0]);
         assert(y1_dimension == if_active.size());
         double* __restrict y_vals = (double*)(_y->vals);
         double total_active_flow = 0;
@@ -335,7 +335,7 @@ int KernelOpencl::normalize(bool flag_x2y, std::vector<bool>& if_active) {
             }
         }
     } else {
-        int x1_dimension = (int)(_x->dimensions[_x->mode_ordering[0]]);
+        int x1_dimension = (int)(_x->dimensions[0]);
         assert(x1_dimension == if_active.size());
         double* __restrict x_vals = (double*)(_x->vals);
         double total_active_flow = 0;
@@ -358,7 +358,7 @@ int KernelOpencl::normalize(bool flag_x2y, std::vector<bool>& if_active) {
     return 0;
 }
 
-int KernelOpencl::download(bool flag_x2y, taco_tensor_t** c_tensor_x, taco_tensor_t** c_tensor_y) {
+int KernelOpencl::download(bool flag_x2y, std::shared_ptr<Tensor>& c_tensor_x, std::shared_ptr<Tensor>& c_tensor_y) {
     ret_code = clFlush(command_queue->command_queue);DEFAULT_DEBUG;
     CL_ERR_HANDLE;DEFAULT_DEBUG;
     ret_code = clFinish(command_queue->command_queue);DEFAULT_DEBUG;
@@ -378,14 +378,14 @@ int KernelOpencl::download(bool flag_x2y, taco_tensor_t** c_tensor_x, taco_tenso
                             tensor_x_length * sizeof(double), _x->vals, 0, nullptr, nullptr);
         CL_ERR_HANDLE;
     }
-    *c_tensor_x = _x;
-    *c_tensor_y = _y;
+    c_tensor_x = _x;
+    c_tensor_y = _y;
     return 0;
 }
 
-double KernelOpencl::vetor_norm(taco_tensor_t* x, taco_tensor_t* y) const {
-    int y1_dimension = (int)(y->dimensions[y->mode_ordering[0]]);
-    int x1_dimension = (int)(x->dimensions[x->mode_ordering[0]]);
+double KernelOpencl::vetor_norm(std::shared_ptr<Tensor> x, std::shared_ptr<Tensor> y) const {
+    int y1_dimension = (int)(y->dimensions[0]);
+    int x1_dimension = (int)(x->dimensions[0]);
     assert(y1_dimension == x1_dimension);
     double* __restrict x_vals = (double*)(x->vals);
     double* __restrict y_vals = (double*)(y->vals);

@@ -5,8 +5,11 @@ __kernel void sparse_mxv(uint num_rows, __global uint* row_col_offset, __global 
     int local_id = get_local_id(0);
     int row = thread_id;
 
-    int row_A_start = row_col_offset[row];
-    int row_A_end = row_col_offset[row + 1];
+    int row_A_start = 0;
+    if(row != 0) {
+        row_A_start = row_col_offset[row -1];
+    }
+    int row_A_end = row_col_offset[row];
 
     tmp_vals[local_id] = 0;
     for (int jj = row_A_start; jj < row_A_end; jj += 1) {

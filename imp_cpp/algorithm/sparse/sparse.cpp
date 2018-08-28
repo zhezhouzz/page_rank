@@ -13,8 +13,8 @@ AlgoSparse::AlgoSparse(std::unordered_set<KernelType> needed_kernels) {
     return;
 }
 
-int AlgoSparse::upload(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A,
-                          taco_tensor_t* x, taco_tensor_t* z, const CmdOpt& option) {
+int AlgoSparse::upload(std::shared_ptr<Tensor> y, std::shared_ptr<Tensor> alpha, std::shared_ptr<Tensor> A,
+                          std::shared_ptr<Tensor> x, std::shared_ptr<Tensor> z, const CmdOpt& option) {
     auto default_kernel = kernels_hashmap.begin()->second;
     default_kernel->upload(y, alpha, A, x, z);
     _eps = option.eps;
@@ -40,7 +40,7 @@ int AlgoSparse::run() {
                     default_kernel->page_rank_once(flag_x2y
                         );
                 ERROR_HANDLE_;
-                ret_code = default_kernel->download(flag_x2y, &pre_result, &cur_result);
+                ret_code = default_kernel->download(flag_x2y, pre_result, cur_result);
             }
 
             FP_LOG(FP_LEVEL_INFO, "[vetor_norm]\n");
@@ -53,7 +53,7 @@ int AlgoSparse::run() {
 #ifndef FPOPT
             times++;
             FP_LOG(FP_LEVEL_INFO, "<loop %d>\n", times);
-            print_vector_tensor(cur_result);
+            cur_result->print();
 #endif
         } while (norm > _eps);
     }
@@ -63,8 +63,8 @@ int AlgoSparse::run() {
     return 0;
 }
 
-int AlgoSparse::download(taco_tensor_t** result) const
+int AlgoSparse::download(std::shared_ptr<Tensor>& result) const
 {
-    *result = cur_result;
+    result = cur_result;
     return 0;
 }

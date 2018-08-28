@@ -1,9 +1,12 @@
 #include "tensor.h"
 #include <fstream>
 #include <iostream>
+#include <map>
+#include <memory>
 #include <sstream>
 
 int Tensor::load_sparce_mtx(const std::string &mtx_path) {
+    DEFAULT_DEBUG;
     std::ifstream read_file(mtx_path);
     std::string line_str;
     std::stringstream ss;
@@ -27,10 +30,20 @@ int Tensor::load_sparce_mtx(const std::string &mtx_path) {
         vals_size = unit_size * element_num;
         double *vals_double = new double[element_num];
         vals = reinterpret_cast<uint8_t *>(vals_double);
+        cols = new int[element_num];
 
         indices.resize(row_length, 0);
 
-        double *m_buffer = new double[row_length * col_length];
+        auto m_buffer =
+            std::map<std::pair<int, int>, double,
+                     std::function<bool(const std::pair<int, int> &, const std::pair<int, int> &)>>{
+                [](const std::pair<int, int> &a, const std::pair<int, int> &b) {
+                    if (a.first == b.first) {
+                        return a.second < b.second;
+                    }
+                    return a.first < b.first;
+                }};
+
         for (int i = 0; i < element_num; i++) {
             if (not std::getline(read_file, line_str)) {
                 delete[] vals_double;
@@ -43,19 +56,35 @@ int Tensor::load_sparce_mtx(const std::string &mtx_path) {
             ss.clear();
             ss << line_str;
             ss >> x >> y >> v;
-            m_buffer[(x - 1) * col_length + y - 1] = v;
+            m_buffer.insert(std::make_pair(std::make_pair(x - 1, y - 1), v));
         }
-        int val_iter = 0;
-        for (int i = 0; i < row_length; i++) {
-            for (int j = 0; j < col_length; j++) {
-                if (m_buffer[i * col_length + j] != 0) {
-                    vals_double[val_iter] = m_buffer[i * col_length + j];
-                    val_iter++;
-                }
-            }
-            indices[i] = val_iter;
+        DEFAULT_ERROR_DEBUG;
+        int iter_index = 0;
+        for (const auto &element : m_buffer) {
+            indices[element.first.first] = iter_index + 1;
+            vals_double[iter_index] = element.second;
+            cols[iter_index] = element.first.second;
+            // std::cout << "indices[" << element.first.first << "] = " << indices[element.first.first]
+            //           << std::endl;
+            // std::cout << "vals_double[" << iter_index << "] = " << vals_double[iter_index]
+            //           << std::endl;
+            // std::cout << "cols[" << iter_index << "] = " << cols[iter_index]
+            //           << std::endl;
+            iter_index++;
         }
-        delete[] m_buffer;
+        // for (const auto &element : indices) {
+        //     std::cout << element << " ";
+        // }
+        // std::cout << std::endl;
+        // for (int i = 0; i < element_num; i++) {
+        //     std::cout << vals_double[i] << " ";
+        // }
+        // std::cout << std::endl;
+        // for (int i = 0; i < element_num; i++) {
+        //     std::cout << cols[i] << " ";
+        // }
+        // std::cout << std::endl;
+        DEFAULT_ERROR_DEBUG;
     } else {
         std::cout << "can't open" << mtx_path << "!" << std::endl;
         exit(1);
@@ -127,7 +156,55 @@ Tensor::Tensor(TENSOR_MODE mode_, const std::string &mtx_path) {
     mode = mode_;
 }
 
-Tensor::Tensor(TENSOR_MODE mode_, const std::vector<uint32_t> &dimensions_) {
+void Tensor::print_(int d_index, int v_index, FpDebugLevel level) {
+    int length = dimensions[d_index];
+    v_index = v_index * length;
+    FP_LOG(level, "[");
+    for (int i = 0; i < length; i++) {
+        if (d_index == (dimensions.size() - 1)) {
+            FP_LOG(level, "%.10e ", reinterpret_cast<double *>(vals)[v_index + i]);
+        } else {
+            print_(d_index + 1, v_index + i, level);
+        }
+    }
+    FP_LOG(level, "]\n");
+    return;
+}
+
+void Tensor::save_(int d_index, int v_index, std::ofstream& ofstr) {
+    int length = dimensions[d_index];
+    v_index = v_index * length;
+    ofstr << "[";
+    for (int i = 0; i < length; i++) {
+        if (d_index == (dimensions.size() - 1)) {
+            ofstr << reinterpret_cast<double *>(vals)[v_index + i] << " ";
+        } else {
+            save_(d_index + 1, v_index + i, ofstr);
+        }
+    }
+    ofstr << "]" << std::endl;
+    return;
+}
+
+void Tensor::print(FpDebugLevel level) {
+    // print_(0, 0, level);
+    return;
+}
+
+void Tensor::save(const std::string &mtx_path) {
+    std::ofstream ofstr(mtx_path);
+    if (ofstr.is_open()) {
+        ofstr << std::scientific;
+        save_(0, 0, ofstr);
+    } else {
+        std::cout << "can't open" << mtx_path << "!" << std::endl;
+        exit(1);
+    }
+    ofstr.close();
+    return;
+}
+
+Tensor::Tensor(TENSOR_MODE mode_, const std::vector<int> &dimensions_) {
     mode = mode_;
     dimensions = dimensions_;
     unit_size = sizeof(double);
@@ -159,4 +236,9 @@ Tensor::Tensor(double v) {
     vals = reinterpret_cast<uint8_t *>(vals_double);
 }
 
-Tensor::~Tensor() { delete[] vals; }
+Tensor::~Tensor() {
+    delete[] vals;
+    if (cols != nullptr) {
+        delete[] cols;
+    }
+}

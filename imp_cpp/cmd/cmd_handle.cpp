@@ -4,8 +4,8 @@
 static KernelType kernel_type_handle(const std::string& kernel_type_str) {
     if (kernel_type_str == "opencl") {
         return KernelType::opencl;
-    } else if (kernel_type_str == "taco") {
-        return KernelType::taco;
+    } else if (kernel_type_str == "cpu") {
+        return KernelType::cpu;
     } else {
         std::cout << "bad kernel_type" << std::endl;
         exit(0);
@@ -102,7 +102,6 @@ CmdOpt cmd_handle(int argc, char* argv[]) {
         ret_opt.inactive_tolerance = inactive_tolerance_handle(inactive_tolerance_int);
         std::cout << "r = " << terminate_active_rate_double << std::endl;
         ret_opt.terminate_active_rate = terminate_active_rate_handle(terminate_active_rate_double);
-
     } catch (const cxxopts::OptionException& e) {
         std::cout << "error parsing options: " << e.what() << std::endl;
         exit(1);

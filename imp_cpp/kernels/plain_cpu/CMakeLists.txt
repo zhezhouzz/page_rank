@@ -10,9 +10,9 @@ if(USE_OpenMP)
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} ")
 endif(USE_OpenMP)
 
-add_library(taco_kernel ${RAW_SOURCES})
-target_link_libraries (taco_kernel taco)
+add_library(plain_cpu_kernel ${RAW_SOURCES})
+target_link_libraries (plain_cpu_kernel tensor)
 
 if(USE_OpenMP)
-  target_link_libraries (taco_kernel ${OpenMP_CXX_LIB_NAMES})
+  target_link_libraries (plain_cpu_kernel ${OpenMP_CXX_LIB_NAMES})
 endif(USE_OpenMP)

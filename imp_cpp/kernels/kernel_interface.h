@@ -1,40 +1,30 @@
 #pragma once
 
-#include <taco.h>
-enum class KernelType { opencl, taco };
+#include "tensor/tensor.h"
+enum class KernelType { opencl, cpu };
 
 class KernelInterface {
 public:
     virtual ~KernelInterface() = default;
-    virtual int upload(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
-                       taco_tensor_t* z) = 0;
+    virtual int upload(std::shared_ptr<Tensor> y, std::shared_ptr<Tensor> alpha,
+                       std::shared_ptr<Tensor> A, std::shared_ptr<Tensor> x,
+                       std::shared_ptr<Tensor> z) = 0;
     virtual int page_rank_once(bool flag_x2y) = 0;
-    virtual int upload_dense_mxv(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A,
-                                 taco_tensor_t* x, taco_tensor_t* z) = 0;
+    virtual int upload_dense_mxv(std::shared_ptr<Tensor> y, std::shared_ptr<Tensor> alpha,
+                                 std::shared_ptr<Tensor> A, std::shared_ptr<Tensor> x,
+                                 std::shared_ptr<Tensor> z) = 0;
     virtual int dense_mxv(bool flag_x2y) = 0;
-    virtual int upload_approximate_mxv(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A,
-                                       taco_tensor_t* x, taco_tensor_t* z) = 0;
+    virtual int upload_approximate_mxv(std::shared_ptr<Tensor> y, std::shared_ptr<Tensor> alpha,
+                                       std::shared_ptr<Tensor> A, std::shared_ptr<Tensor> x,
+                                       std::shared_ptr<Tensor> z) = 0;
     virtual int approximate_mxv(bool flag_x2y, std::vector<bool> if_active) = 0;
-    virtual int approximate_find_active(taco_tensor_t* x, taco_tensor_t* y,
+    virtual int approximate_find_active(std::shared_ptr<Tensor> x, std::shared_ptr<Tensor> y,
                                         std::vector<bool>& if_active, double eps,
                                         int stable_num) = 0;
     virtual int normalize(bool flag_x2y, std::vector<bool>& if_active) = 0;
 
-    virtual int download(bool flag_x2y, taco_tensor_t** pre_result, taco_tensor_t** cur_result) = 0;
-    virtual double vetor_norm(taco_tensor_t* x, taco_tensor_t* y) const = 0;
+    virtual int download(bool flag_x2y, std::shared_ptr<Tensor>& pre_result,
+                         std::shared_ptr<Tensor>& cur_result) = 0;
+    virtual double vetor_norm(std::shared_ptr<Tensor> x, std::shared_ptr<Tensor> y) const = 0;
     static std::shared_ptr<KernelInterface> make(KernelType type);
 };
-
-// int prepare(KernelType kernel_type);
-
-// int upload(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
-//            taco_tensor_t* z, KernelType kernel_type);
-
-// int page_rank_once(taco_tensor_t* y, taco_tensor_t* alpha, taco_tensor_t* A, taco_tensor_t* x,
-//                    taco_tensor_t* z, KernelType kernel_type);
-
-// int download(taco_tensor_t** pre_result, taco_tensor_t** cur_result, KernelType kernel_type);
-
-// double vetor_norm(taco_tensor_t* x, taco_tensor_t* y, KernelType kernel_type);
-
-// int finish(KernelType kernel_type);
