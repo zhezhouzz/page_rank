@@ -64,7 +64,8 @@ int Tensor::load_sparce_mtx(const std::string &mtx_path) {
             indices[element.first.first] = iter_index + 1;
             vals_double[iter_index] = element.second;
             cols[iter_index] = element.first.second;
-            // std::cout << "indices[" << element.first.first << "] = " << indices[element.first.first]
+            // std::cout << "indices[" << element.first.first << "] = " <<
+            // indices[element.first.first]
             //           << std::endl;
             // std::cout << "vals_double[" << iter_index << "] = " << vals_double[iter_index]
             //           << std::endl;
@@ -116,6 +117,7 @@ int Tensor::load_dense_mtx(const std::string &mtx_path) {
         unit_size = sizeof(double);
         vals_size = unit_size * unit_num;
         double *vals_double = new double[unit_num];
+        std::memset(vals_double, 0, sizeof(double) * unit_num);
         vals = reinterpret_cast<uint8_t *>(vals_double);
         for (int i = 0; i < row_length; i++) {
             for (int j = 0; j < col_length; j++) {
@@ -171,7 +173,7 @@ void Tensor::print_(int d_index, int v_index, FpDebugLevel level) {
     return;
 }
 
-void Tensor::save_(int d_index, int v_index, std::ofstream& ofstr) {
+void Tensor::save_(int d_index, int v_index, std::ofstream &ofstr) {
     int length = dimensions[d_index];
     v_index = v_index * length;
     ofstr << "[";
@@ -187,7 +189,7 @@ void Tensor::save_(int d_index, int v_index, std::ofstream& ofstr) {
 }
 
 void Tensor::print(FpDebugLevel level) {
-    // print_(0, 0, level);
+    print_(0, 0, level);
     return;
 }
 
